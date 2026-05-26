@@ -1,0 +1,528 @@
+<?php
+session_start();
+include '../db_connection.php';
+include 'header_admin.php';
+
+// Set timezone to Malaysia
+date_default_timezone_set('Asia/Kuala_Lumpur');
+
+$today = date('Y-m-d');
+$morning_start = '09:00:00';
+$morning_end = '12:00:00';
+$afternoon_start = '13:00:00';
+$afternoon_end = '18:00:00';
+$current_time = date('H:i:s');
+
+// Function to auto-create missing session records
+function autoCreateSessionRecords($conn, $today_date, $current_time, $morning_end, $afternoon_end) {
+    $morning_created = 0;
+    $afternoon_created = 0;
+    
+    $emp_query = "SELECT e.employee_id, e.employee_code 
+                  FROM employees e 
+                  JOIN users u ON e.user_id = u.user_id 
+                  WHERE u.role = 'employee' AND u.status = 'Active'";
+    $emp_result = mysqli_query($conn, $emp_query);
+    
+    while($emp = mysqli_fetch_assoc($emp_result)) {
+        $employee_id = $emp['employee_id'];
+        
+        $check_morning = "SELECT * FROM attendance_records 
+                          WHERE employee_id = '$employee_id' AND record_date = '$today_date' AND session = 'morning'";
+        $morning_result = mysqli_query($conn, $check_morning);
+        
+        if(mysqli_num_rows($morning_result) == 0) {
+            $record_id = 'MNG' . date('Ymd') . str_pad($employee_id, 3, '0', STR_PAD_LEFT);
+            $insert_query = "INSERT INTO attendance_records (record_id, employee_id, record_date, session, status) 
+                             VALUES ('$record_id', '$employee_id', '$today_date', 'morning', 'absent')";
+            if(mysqli_query($conn, $insert_query)) {
+                $morning_created++;
+            }
+        }
+        
+        $check_afternoon = "SELECT * FROM attendance_records 
+                            WHERE employee_id = '$employee_id' AND record_date = '$today_date' AND session = 'afternoon'";
+        $afternoon_result = mysqli_query($conn, $check_afternoon);
+        
+        if(mysqli_num_rows($afternoon_result) == 0) {
+            $record_id = 'AFT' . date('Ymd') . str_pad($employee_id, 3, '0', STR_PAD_LEFT);
+            $insert_query = "INSERT INTO attendance_records (record_id, employee_id, record_date, session, status) 
+                             VALUES ('$record_id', '$employee_id', '$today_date', 'afternoon', 'absent')";
+            if(mysqli_query($conn, $insert_query)) {
+                $afternoon_created++;
+            }
+        }
+    }
+    
+    return ['morning' => $morning_created, 'afternoon' => $afternoon_created];
+}
+
+// Auto-create session records
+$created = autoCreateSessionRecords($conn, $today, $current_time, $morning_end, $afternoon_end);
+
+// Get statistics for today
+$emp_query = "SELECT COUNT(*) as total FROM employees";
+$emp_result = mysqli_query($conn, $emp_query);
+$total_employees = mysqli_fetch_assoc($emp_result)['total'];
+
+// Morning session stats
+$morning_present = 0;
+$morning_late = 0;
+$morning_absent = 0;
+$morning_half_day = 0;
+$morning_holiday = 0;
+
+$morning_stats = "SELECT status FROM attendance_records WHERE record_date = '$today' AND session = 'morning'";
+$morning_result = mysqli_query($conn, $morning_stats);
+while($row = mysqli_fetch_assoc($morning_result)) {
+    if($row['status'] == 'present') $morning_present++;
+    elseif($row['status'] == 'late') $morning_late++;
+    elseif($row['status'] == 'half_day') $morning_half_day++;
+    elseif($row['status'] == 'holiday') $morning_holiday++;
+    else $morning_absent++;
+}
+
+// Afternoon session stats
+$afternoon_present = 0;
+$afternoon_late = 0;
+$afternoon_absent = 0;
+$afternoon_half_day = 0;
+$afternoon_holiday = 0;
+
+$afternoon_stats = "SELECT status FROM attendance_records WHERE record_date = '$today' AND session = 'afternoon'";
+$afternoon_result = mysqli_query($conn, $afternoon_stats);
+while($row = mysqli_fetch_assoc($afternoon_result)) {
+    if($row['status'] == 'present') $afternoon_present++;
+    elseif($row['status'] == 'late') $afternoon_late++;
+    elseif($row['status'] == 'half_day') $afternoon_half_day++;
+    elseif($row['status'] == 'holiday') $afternoon_holiday++;
+    else $afternoon_absent++;
+}
+
+// Get ALL employees with their attendance records for both sessions
+$employee_query = "SELECT u.name, e.employee_id, e.employee_code, e.department, e.position,
+                          m.check_in_time as morning_in, m.check_out_time as morning_out, m.status as morning_status,
+                          a.check_in_time as afternoon_in, a.check_out_time as afternoon_out, a.status as afternoon_status
+                   FROM employees e
+                   JOIN users u ON e.user_id = u.user_id
+                   LEFT JOIN attendance_records m ON e.employee_id = m.employee_id AND m.record_date = '$today' AND m.session = 'morning'
+                   LEFT JOIN attendance_records a ON e.employee_id = a.employee_id AND a.record_date = '$today' AND a.session = 'afternoon'
+                   WHERE u.role = 'employee'
+                   ORDER BY u.name";
+$employee_result = mysqli_query($conn, $employee_query);
+
+// Function to get badge class and text based on status
+function getStatusBadge($status) {
+    switch($status) {
+        case 'present':
+            return ['class' => 'badge-success', 'text' => 'Present'];
+        case 'late':
+            return ['class' => 'badge-warning', 'text' => 'Late'];
+        case 'half_day':
+            return ['class' => 'badge-info', 'text' => 'Half Day'];
+        case 'holiday':
+            return ['class' => 'badge-primary', 'text' => 'Holiday'];
+        default:
+            return ['class' => 'badge-danger', 'text' => 'Absent'];
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Attendance System</title>
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    
+    body {
+        background: #f0f2f5;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    .main-container {
+        max-width: 1400px;
+        margin: 100px auto 40px;
+        padding: 0 20px;
+    }
+    
+    .time-card {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        margin-bottom: 25px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .time-card-left h3 {
+        color: #333;
+        font-size: 20px;
+        margin-bottom: 5px;
+    }
+
+    .time-card-right {
+        text-align: right;
+    }
+
+    .date-display {
+        color: #999;
+        font-size: 14px;
+        margin-bottom: 5px;
+    }
+
+    .time-card-right h1 {
+        color: #dc3545;
+        font-size: 48px;
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
+    
+    .stats-section {
+        margin-bottom: 25px;
+    }
+    
+    .stats-title {
+        font-size: 14px;
+        font-weight: bold;
+        margin-bottom: 10px;
+        color: #555;
+        padding-left: 5px;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 15px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border-top: 4px solid #dc3545;
+    }
+    
+    .stat-card.morning { border-top-color: #007bff; }
+    .stat-card.afternoon { border-top-color: #fd7e14; }
+    
+    .stat-info h6 {
+        color: #666;
+        font-size: 12px;
+        margin-bottom: 5px;
+    }
+    
+    .stat-info h2 {
+        font-size: 28px;
+        color: #333;
+        margin-bottom: 5px;
+    }
+    
+    .stat-info small {
+        color: #999;
+        font-size: 10px;
+    }
+    
+    .stat-icon {
+        font-size: 32px;
+    }
+    
+    .card {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .card-header {
+        background: #dc3545;
+        color: white;
+        padding: 15px 20px;
+    }
+    
+    .card-header h5 {
+        margin: 0;
+        font-size: 16px;
+    }
+    
+    .card-body {
+        padding: 20px;
+    }
+    
+    .table-responsive {
+        overflow-x: auto;
+    }
+    
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+    
+    .data-table th {
+        background: #343a40;
+        color: white;
+        padding: 12px;
+        text-align: center;
+    }
+    
+    .data-table td {
+        padding: 10px;
+        text-align: center;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .data-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+    
+    .badge {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        display: inline-block;
+    }
+    
+    .badge-success { background: #28a745; color: white; }
+    .badge-warning { background: #ffc107; color: #333; }
+    .badge-danger { background: #dc3545; color: white; }
+    .badge-info { background: #17a2b8; color: white; }
+    .badge-primary { background: #007bff; color: white; }
+    
+    .auto-mark-notice {
+        background: #e8f4fd;
+        padding: 10px 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        font-size: 13px;
+        color: #007bff;
+        border-left: 4px solid #007bff;
+    }
+    
+    @media (max-width: 992px) {
+        .stats-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .main-container {
+            margin-top: 80px;
+        }
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        .data-table th,
+        .data-table td {
+            padding: 6px;
+            font-size: 11px;
+        }
+    }
+</style>
+</head>
+<body>
+<div class="main-container">
+    <!-- Welcome Section -->
+    <div class="time-card">
+        <div class="time-card-left">
+            <h3>Welcome back, <?php echo $_SESSION['user_name']; ?>!</h3>
+        </div>
+        <div class="time-card-right">
+            <div class="date-display" id="currentDate"></div>
+            <h1 id="currentTime">--:--:--</h1>
+        </div>
+    </div>
+    
+    <?php if($created['morning'] > 0 || $created['afternoon'] > 0): ?>
+    <div class="auto-mark-notice">
+        <i class="fas fa-info-circle"></i> System automatically created 
+        <?php echo $created['morning']; ?> morning session(s) and 
+        <?php echo $created['afternoon']; ?> afternoon session(s) as absent.
+    </div>
+    <?php endif; ?>
+
+    <!-- Morning Session Stats -->
+    <div class="stats-section">
+        <div class="stats-title">🌅 Morning Session (9:00 - 12:00)</div>
+        <div class="stats-grid">
+            <div class="stat-card morning">
+                <div class="stat-info">
+                    <h6>Present</h6>
+                    <h2 style="color: #28a745;"><?php echo $morning_present; ?></h2>
+                    <small>On time</small>
+                </div>
+                <div class="stat-icon">✅</div>
+            </div>
+            <div class="stat-card morning">
+                <div class="stat-info">
+                    <h6>Late</h6>
+                    <h2 style="color: #ffc107;"><?php echo $morning_late; ?></h2>
+                    <small>Came late</small>
+                </div>
+                <div class="stat-icon">⏰</div>
+            </div>
+            <div class="stat-card morning">
+                <div class="stat-info">
+                    <h6>Half Day</h6>
+                    <h2 style="color: #17a2b8;"><?php echo $morning_half_day; ?></h2>
+                    <small>Half day</small>
+                </div>
+                <div class="stat-icon">🌓</div>
+            </div>
+            <div class="stat-card morning">
+                <div class="stat-info">
+                    <h6>Holiday</h6>
+                    <h2 style="color: #007bff;"><?php echo $morning_holiday; ?></h2>
+                    <small>On holiday</small>
+                </div>
+                <div class="stat-icon">🏖️</div>
+            </div>
+            <div class="stat-card morning">
+                <div class="stat-info">
+                    <h6>Absent</h6>
+                    <h2 style="color: #dc3545;"><?php echo $morning_absent; ?></h2>
+                    <small>No show</small>
+                </div>
+                <div class="stat-icon">❌</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Afternoon Session Stats -->
+    <div class="stats-section">
+        <div class="stats-title">🌙 Afternoon Session (13:00 - 18:00)</div>
+        <div class="stats-grid">
+            <div class="stat-card afternoon">
+                <div class="stat-info">
+                    <h6>Present</h6>
+                    <h2 style="color: #28a745;"><?php echo $afternoon_present; ?></h2>
+                    <small>On time</small>
+                </div>
+                <div class="stat-icon">✅</div>
+            </div>
+            <div class="stat-card afternoon">
+                <div class="stat-info">
+                    <h6>Late</h6>
+                    <h2 style="color: #ffc107;"><?php echo $afternoon_late; ?></h2>
+                    <small>Came late</small>
+                </div>
+                <div class="stat-icon">⏰</div>
+            </div>
+            <div class="stat-card afternoon">
+                <div class="stat-info">
+                    <h6>Half Day</h6>
+                    <h2 style="color: #17a2b8;"><?php echo $afternoon_half_day; ?></h2>
+                    <small>Half day</small>
+                </div>
+                <div class="stat-icon">🌓</div>
+            </div>
+            <div class="stat-card afternoon">
+                <div class="stat-info">
+                    <h6>Holiday</h6>
+                    <h2 style="color: #007bff;"><?php echo $afternoon_holiday; ?></h2>
+                    <small>On holiday</small>
+                </div>
+                <div class="stat-icon">🏖️</div>
+            </div>
+            <div class="stat-card afternoon">
+                <div class="stat-info">
+                    <h6>Absent</h6>
+                    <h2 style="color: #dc3545;"><?php echo $afternoon_absent; ?></h2>
+                    <small>No show</small>
+                </div>
+                <div class="stat-icon">❌</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Employee Details Table -->
+    <div class="card">
+        <div class="card-header">
+            <h5>Today's Employee Attendance Details</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th rowspan="2">Employee Code</th>
+                            <th rowspan="2">Employee Name</th>
+                            <th rowspan="2">Department</th>
+                            <th rowspan="2">Position</th>
+                            <th colspan="3">Morning Session (9:00 - 12:00)</th>
+                            <th colspan="3">Afternoon Session (13:00 - 18:00)</th>
+                        </tr>
+                        <tr>
+                            <th>Check In</th>
+                            <th>Check Out</th>
+                            <th>Status</th>
+                            <th>Check In</th>
+                            <th>Check Out</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if(mysqli_num_rows($employee_result) > 0): ?>
+                            <?php while($row = mysqli_fetch_assoc($employee_result)): 
+                                // Morning session
+                                $morning_badge = getStatusBadge($row['morning_status']);
+                                // Afternoon session
+                                $afternoon_badge = getStatusBadge($row['afternoon_status']);
+                            ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($row['employee_code']); ?></td>
+                                <td><?php echo htmlspecialchars($row['name']); ?></td>
+                                <td><?php echo htmlspecialchars($row['department']); ?></td>
+                                <td><?php echo htmlspecialchars($row['position']); ?></td>
+                                
+                                <!-- Morning Session -->
+                                <td><?php echo $row['morning_in'] ? date('h:i A', strtotime($row['morning_in'])) : '-'; ?></td>
+                                <td><?php echo $row['morning_out'] ? date('h:i A', strtotime($row['morning_out'])) : '-'; ?></td>
+                                <td><span class="badge <?php echo $morning_badge['class']; ?>"><?php echo $morning_badge['text']; ?></span></td>
+                                
+                                <!-- Afternoon Session -->
+                                <td><?php echo $row['afternoon_in'] ? date('h:i A', strtotime($row['afternoon_in'])) : '-'; ?></td>
+                                <td><?php echo $row['afternoon_out'] ? date('h:i A', strtotime($row['afternoon_out'])) : '-'; ?></td>
+                                <td><span class="badge <?php echo $afternoon_badge['class']; ?>"><?php echo $afternoon_badge['text']; ?></span></td>
+                            </tr>
+                            <?php endwhile; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="10" class="text-center">No employees found</td
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function updateDateTime() {
+        const now = new Date();
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('currentDate').innerHTML = '📅 ' + now.toLocaleDateString('en-MY', options);
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        document.getElementById('currentTime').innerHTML = `${hours}:${minutes}:${seconds}`;
+    }
+    
+    setInterval(updateDateTime, 1000);
+    updateDateTime();
+</script>
+</body>
+</html>
