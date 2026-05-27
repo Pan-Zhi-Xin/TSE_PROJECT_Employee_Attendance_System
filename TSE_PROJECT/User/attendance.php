@@ -26,25 +26,31 @@ function getSession($check_in_time) {
 }
 
 // Helper function to calculate working hours for a session
-function calculateWorkingHours($check_in_time, $check_out_time, $session) {
-    global $morning_start, $morning_end, $afternoon_start, $afternoon_end;
-    
-    if(!$check_in_time) return 0;
-    
-    $work_start = ($session == 'morning') ? $morning_start : $afternoon_start;
-    $work_end = ($session == 'morning') ? $morning_end : $afternoon_end;
-    
-    $check_in_only = date('H:i:s', strtotime($check_in_time));
-    $actual_start = ($check_in_only > $work_start) ? $check_in_only : $work_start;
-    
-    if($check_out_time) {
-        $check_out_only = date('H:i:s', strtotime($check_out_time));
-        $actual_end = ($check_out_only < $work_end) ? $check_out_only : $work_end;
-        $hours = (strtotime($actual_end) - strtotime($actual_start)) / 3600;
-        return round($hours > 0 ? $hours : 0, 2);
+function calculateWorkingHours($check_in_time, $check_out_time) {
+
+    if(!$check_in_time || !$check_out_time) {
+        return 0;
     }
-    
-    return 0;
+
+    $check_in = strtotime($check_in_time);
+    $check_out = strtotime($check_out_time);
+
+    $total_seconds = $check_out - $check_in;
+
+    // Lunch break
+    $lunch_start = strtotime(date('Y-m-d 12:00:00', $check_in));
+    $lunch_end = strtotime(date('Y-m-d 13:00:00', $check_in));
+
+    // If attendance overlaps lunch period
+    if($check_in < $lunch_end && $check_out > $lunch_start) {
+
+        $overlap_start = max($check_in, $lunch_start);
+        $overlap_end = min($check_out, $lunch_end);
+
+        $total_seconds -= max(0, $overlap_end - $overlap_start);
+    }
+
+    return round(max($total_seconds / 3600, 0), 2);
 }
 
 // Helper function to calculate late minutes
@@ -496,7 +502,7 @@ foreach($daily_data as $date => $day) {
                                 <!-- Total Hours -->
                                 <td class="hours-cell">
                                     <?php echo number_format($total_day_hours, 2); ?> hrs
-                                </td
+                                </td>
                             </tr>
                             <?php endforeach; ?>
                         </tbody>
