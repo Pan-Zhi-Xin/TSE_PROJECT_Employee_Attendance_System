@@ -40,107 +40,8 @@ while($row = mysqli_fetch_assoc($emp_result)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Attendance Reports - Admin Dashboard</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            background: #f0f2f5;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        .main-container {
-            max-width: 800px;
-            margin: 100px auto 40px;
-            padding: 0 20px;
-        }
-        
-        .card {
-            background: white;
-            border-radius: 8px;
-            margin-bottom: 25px;
-            border: 1px solid #ddd;
-            overflow: hidden;
-        }
-        
-        .card-header {
-            background: #dc3545;
-            color: white;
-            padding: 12px 20px;
-            font-weight: bold;
-        }
-        
-        .card-body {
-            padding: 20px;
-        }
-        
-        .form-row {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-        
-        .form-group {
-            margin-bottom: 10px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 500;
-            color: #555;
-            font-size: 13px;
-        }
-        
-        .form-group input,
-        .form-group select {
-            width: 100%;
-            padding: 8px 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 13px;
-        }
-        
-        .form-group input:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: #dc3545;
-        }
-        
-        .btn-primary {
-            background: #dc3545;
-            color: white;
-            border: none;
-            padding: 10px 30px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-        }
-        
-        .btn-primary:hover {
-            background: #c82333;
-        }
-        
-        .btn-group {
-            text-align: center;
-            margin-top: 10px;
-        }
-        
-        @media (max-width: 768px) {
-            .main-container {
-                margin-top: 80px;
-            }
-            .form-row {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
+    <title>Attendance Reports</title>
+    <link rel="stylesheet" href="report.css">
 </head>
 <body>
 <div class="main-container">
@@ -176,16 +77,7 @@ while($row = mysqli_fetch_assoc($emp_result)) {
                     </div>
                     <div class="form-group" id="monthlyGroup" style="display: none;">
                         <label>Month</label>
-                        <select name="month" id="monthSelect">
-                            <?php 
-                            for($m = 1; $m <= 12; $m++): 
-                                $month_val = str_pad($m, 2, '0', STR_PAD_LEFT);
-                            ?>
-                                <option value="<?php echo $month_val; ?>">
-                                    <?php echo date('F', mktime(0,0,0,$m,1)); ?>
-                                </option>
-                            <?php endfor; ?>
-                        </select>
+                        <input type="month" name="month_year" id="monthPicker" class="month-picker">
                     </div>
                     <div class="form-group" id="monthlyYearGroup" style="display: none;">
                         <label>Year</label>
@@ -211,24 +103,32 @@ while($row = mysqli_fetch_assoc($emp_result)) {
         </div>
     </div>
 </div>
-
 <script>
     const reportType = document.getElementById('reportType');
     const dailyDateGroup = document.getElementById('dailyDateGroup');
     const monthlyGroup = document.getElementById('monthlyGroup');
-    const monthlyYearGroup = document.getElementById('monthlyYearGroup');
     const customStartGroup = document.getElementById('customStartGroup');
     const customEndGroup = document.getElementById('customEndGroup');
     const todayDate = '<?php echo $today_date; ?>';
     const currentYear = <?php echo $current_year; ?>;
     const currentMonth = <?php echo $current_month; ?>;
     
+    // Set max date for month picker
+    const monthPicker = document.getElementById('monthPicker');
+    if(monthPicker) {
+        // Format: YYYY-MM
+        const maxMonth = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+        monthPicker.max = maxMonth;
+        
+        // Set default value to current month
+        monthPicker.value = maxMonth;
+    }
+    
     function toggleDateFields() {
         const type = reportType.value;
         
         dailyDateGroup.style.display = 'none';
         monthlyGroup.style.display = 'none';
-        monthlyYearGroup.style.display = 'none';
         customStartGroup.style.display = 'none';
         customEndGroup.style.display = 'none';
         
@@ -236,8 +136,6 @@ while($row = mysqli_fetch_assoc($emp_result)) {
             dailyDateGroup.style.display = 'block';
         } else if(type == 'monthly') {
             monthlyGroup.style.display = 'block';
-            monthlyYearGroup.style.display = 'block';
-            updateMonthOptions();
         } else if(type == 'custom') {
             customStartGroup.style.display = 'block';
             customEndGroup.style.display = 'block';
@@ -270,22 +168,6 @@ while($row = mysqli_fetch_assoc($emp_result)) {
         }
     }
     
-    function updateMonthOptions() {
-        const year = parseInt(document.getElementById('yearSelect').value);
-        const monthSelect = document.getElementById('monthSelect');
-        
-        for(let i = 0; i < monthSelect.options.length; i++) {
-            const monthValue = parseInt(monthSelect.options[i].value);
-            if(year === currentYear && monthValue > currentMonth) {
-                monthSelect.options[i].disabled = true;
-            } else {
-                monthSelect.options[i].disabled = false;
-            }
-        }
-    }
-    
-    document.getElementById('yearSelect').addEventListener('change', updateMonthOptions);
-    
     reportType.addEventListener('change', toggleDateFields);
     toggleDateFields();
     
@@ -301,10 +183,19 @@ while($row = mysqli_fetch_assoc($emp_result)) {
                 return false;
             }
         } else if(type == 'monthly') {
-            const year = document.getElementById('yearSelect').value;
-            const month = document.getElementById('monthSelect').value;
+            const monthYear = document.getElementById('monthPicker').value;
+            if(!monthYear) {
+                e.preventDefault();
+                alert('Please select a month');
+                return false;
+            }
             
-            if(year == currentYear && parseInt(month) > currentMonth) {
+            // Extract year and month from the month picker value (format: YYYY-MM)
+            const [selectedYear, selectedMonth] = monthYear.split('-');
+            
+            // Check if future month is selected
+            if(parseInt(selectedYear) > currentYear || 
+               (parseInt(selectedYear) === currentYear && parseInt(selectedMonth) > currentMonth)) {
                 e.preventDefault();
                 alert('Cannot select future month!');
                 return false;

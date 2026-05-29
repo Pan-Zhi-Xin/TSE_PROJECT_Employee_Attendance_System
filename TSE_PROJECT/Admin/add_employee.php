@@ -142,6 +142,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
     }
 }
+
+$today_date = date('Y-m-d');
 ?>
 
 <!DOCTYPE html>
@@ -149,190 +151,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Add New Employee - Admin Dashboard</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            background: #f0f2f5;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        /* Centered Main Container */
-        .main-container {
-            max-width: 900px;
-            margin: 100px auto 40px;
-            padding: 0 20px;
-        }
-        
-        /* Card Styles */
-        .card {
-            background: white;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        }
-        
-        .card-header {
-            background: #dc3545;
-            color: white;
-            padding: 15px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-        
-        .card-header h5 {
-            margin: 0;
-            font-size: 18px;
-        }
-        
-        .btn-back {
-            background: white;
-            color: #dc3545;
-            border: none;
-            padding: 8px 20px;
-            border-radius: 20px;
-            font-size: 14px;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.3s;
-            font-weight: 500;
-        }
-        
-        .btn-back:hover {
-            background: #f8f9fa;
-            transform: translateY(-1px);
-        }
-        
-        .card-body {
-            padding: 25px;
-        }
-        
-        /* Form Styles */
-        .form-layout {
-            display: flex;
-            gap: 30px;
-        }
-        
-        .form-left {
-            flex: 1;
-        }
-        
-        .form-right {
-            flex: 1;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: #555;
-            font-size: 14px;
-        }
-        
-        .form-group label .required {
-            color: #dc3545;
-        }
-        
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: all 0.3s;
-            font-family: inherit;
-        }
-        
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: #dc3545;
-        }
-        
-        .form-group input[readonly] {
-            background: #e9ecef;
-            cursor: not-allowed;
-        }
-        
-        .form-group textarea {
-            resize: vertical;
-            min-height: 80px;
-        }
-        
-        .form-group small {
-            font-size: 11px;
-            color: #999;
-            margin-top: 5px;
-            display: block;
-        }
-        
-        /* Alert Messages - Simple inline like edit page */
-        .alert-success {
-            background: #d4edda;
-            color: #155724;
-            padding: 12px 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border: 1px solid #c3e6cb;
-        }
-        
-        .alert-danger {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 12px 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border: 1px solid #f5c6cb;
-        }
-        
-        /* Button Styles */
-        .btn-submit {
-            background: #dc3545;
-            color: white;
-            border: none;
-            padding: 12px 25px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.3s;
-            width: 100%;
-            justify-content: center;
-        }
-        
-        .btn-submit:hover {
-            background: #c82333;
-            transform: translateY(-1px);
-        }
-        
-        .form-actions {
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-        }
-    </style>
+    <title>Add New Employee</title>
+    <link rel="stylesheet" href="add_employee.css">
 </head>
 <body>
 <div class="main-container">
@@ -341,7 +161,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <a href="employee_list.php" class="btn-back">
                 <i class="fas fa-arrow-left"></i> Back to Employee List
             </a>
-            <h5><i class="fas fa-user-plus"></i> Add New Employee</h5>
+            <h5>Add New Employee</h5>
         </div>
         <div class="card-body">
             <?php if($error): ?>
@@ -372,12 +192,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         
                         <div class="form-group">
                             <label>Contact Number <span class="required">*</span></label>
-                            <input type="text" name="contact_number" value="<?php echo isset($_POST['contact_number']) ? htmlspecialchars($_POST['contact_number']) : ''; ?>" placeholder="e.g., 0123456789" required>
+                            <input type="text" name="contact_number" value="<?php echo isset($_POST['contact_number']) ? htmlspecialchars($_POST['contact_number']) : ''; ?>" placeholder="+60123456789" required>
                         </div>
                         
                         <div class="form-group">
                             <label>Email Address <span class="required">*</span></label>
-                            <input type="email" name="email" value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>" required>
+                            <input type="email" name="email" value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>" placeholder="email@domain.com" required>
                         </div>
                     </div>
                     
@@ -386,7 +206,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         <div class="form-group">
                             <label>Department <span class="required">*</span></label>
                             <select name="department" required>
-                                <option value="">--- Select Department ---</option>
+                                <option value="" diabled>--- Select Department ---</option>
                                 <option value="IT Department" <?php echo (isset($_POST['department']) && $_POST['department'] == 'IT Department') ? 'selected' : ''; ?>>IT Department</option>
                                 <option value="HR Department" <?php echo (isset($_POST['department']) && $_POST['department'] == 'HR Department') ? 'selected' : ''; ?>>HR Department</option>
                                 <option value="Finance Department" <?php echo (isset($_POST['department']) && $_POST['department'] == 'Finance Department') ? 'selected' : ''; ?>>Finance Department</option>
@@ -405,7 +225,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         
                         <div class="form-group">
                             <label>Employment Date <span class="required">*</span></label>
-                            <input type="date" name="employment_date" value="<?php echo isset($_POST['employment_date']) ? $_POST['employment_date'] : date('Y-m-d'); ?>" required>
+                            <input type="date" name="employment_date" value="<?php echo $today_date; ?>" readonly>
                         </div>
                         
                         <div class="form-group">

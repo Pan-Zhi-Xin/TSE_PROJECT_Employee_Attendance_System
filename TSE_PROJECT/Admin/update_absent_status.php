@@ -90,276 +90,16 @@ while($row = mysqli_fetch_assoc($absent_result)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Update Absent Status - Admin Dashboard</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            background: #f0f2f5;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        .main-container {
-            max-width: 1300px;
-            margin: 100px auto 40px;
-            padding: 0 20px;
-        }
-        
-        .card {
-            background: white;
-            border-radius: 10px;
-            margin-bottom: 25px;
-            border: 1px solid #e0e0e0;
-            overflow: hidden;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
-        
-        .card-header {
-            background: #dc3545;
-            color: white;
-            padding: 15px 20px;
-            font-weight: bold;
-            font-size: 16px;
-        }
-        
-        .card-body {
-            padding: 25px;
-        }
-        
-        .summary-box {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 25px;
-            display: flex;
-            justify-content: space-around;
-            flex-wrap: wrap;
-            gap: 20px;
-            border: 1px solid #e0e0e0;
-        }
-        
-        .summary-item {
-            text-align: center;
-            padding: 10px 25px;
-            background: white;
-            border-radius: 8px;
-            min-width: 150px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        
-        .summary-item h3 {
-            font-size: 32px;
-            margin-bottom: 5px;
-        }
-        
-        .summary-item p {
-            color: #666;
-            font-size: 13px;
-        }
-        
-        .alert-success {
-            background: #d4edda;
-            color: #155724;
-            padding: 12px 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            border: 1px solid #c3e6cb;
-            font-size: 14px;
-        }
-        
-        .alert-error {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 12px 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            border: 1px solid #f5c6cb;
-            font-size: 14px;
-        }
-        
-        .btn-back {
-            background: #6c757d;
-            color: white;
-            border: none;
-            padding: 8px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 13px;
-            text-decoration: none;
-            display: inline-block;
-            margin-bottom: 20px;
-        }
-        
-        .btn-back:hover {
-            background: #5a6268;
-        }
-        
-        .btn-bulk {
-            background: #007bff;
-            color: white;
-            border: none;
-            padding: 8px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 500;
-        }
-        
-        .btn-bulk:hover {
-            background: #0069d9;
-        }
-        
-        .btn-update {
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        
-        .btn-update:hover {
-            background: #218838;
-        }
-        
-        .bulk-actions {
-            background: #f8f9fa;
-            padding: 12px 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 15px;
-            border: 1px solid #e0e0e0;
-        }
-        
-        .select-all {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .select-all label {
-            cursor: pointer;
-        }
-        
-        .table-responsive {
-            overflow-x: auto;
-        }
-        
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-        }
-        
-        .data-table th {
-            background: #343a40;
-            color: white;
-            padding: 12px 10px;
-            text-align: left;
-            font-weight: 600;
-        }
-        
-        .data-table td {
-            padding: 10px;
-            border-bottom: 1px solid #eee;
-            vertical-align: middle;
-        }
-        
-        .data-table tbody tr:hover {
-            background: #f8f9fa;
-        }
-        
-        .session-morning {
-            display: inline-block;
-            background: #007bff;
-            color: white;
-            padding: 3px 10px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: 500;
-        }
-        
-        .session-afternoon {
-            display: inline-block;
-            background: #fd7e14;
-            color: white;
-            padding: 3px 10px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: 500;
-        }
-        
-        .status-badge {
-            display: inline-block;
-            background: #dc3545;
-            color: white;
-            padding: 3px 10px;
-            border-radius: 4px;
-            font-size: 11px;
-        }
-        
-        select.status-select {
-            padding: 6px 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 12px;
-            width: 110px;
-            background: white;
-        }
-        
-        textarea.reason-input {
-            width: 100%;
-            min-width: 180px;
-            padding: 6px 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 12px;
-            resize: vertical;
-            font-family: inherit;
-        }
-        
-        .text-muted {
-            color: #999;
-            font-size: 10px;
-            margin-top: 3px;
-        }
-        
-        .checkbox-col {
-            text-align: center;
-            width: 40px;
-        }
-        
-        .checkbox-col input {
-            cursor: pointer;
-            width: 16px;
-            height: 16px;
-        }
-        
-        .no-data {
-            text-align: center;
-            padding: 50px;
-            color: #999;
-        }
-    </style>
+    <title>Update Absent Status</title>
+    <link rel="stylesheet" href="update_absent_status.css">
 </head>
 <body>
 <div class="main-container">
     <div class="card">
         <div class="card-header">
-            📝 Update Absent Employee Status
+            Update Absent Employee Status
         </div>
-        <div class="card-body">
-            <a href="dashboard_admin.php" class="btn-back">← Back to Dashboard</a>
-            
+        <div class="card-body">            
             <?php if($success_message): ?>
                 <div class="alert-success">
                     ✓ <?php echo $success_message; ?>
@@ -368,22 +108,22 @@ while($row = mysqli_fetch_assoc($absent_result)) {
             
             <?php if($error_message): ?>
                 <div class="alert-error">
-                    ⚠ <?php echo $error_message; ?>
+                    <?php echo $error_message; ?>
                 </div>
             <?php endif; ?>
             
             <div class="summary-box">
                 <div class="summary-item">
                     <h3 style="color: #007bff;"><?php echo $morning_absent; ?></h3>
-                    <p>🌅 Morning Session</p>
+                    <p>Morning Session</p>
                 </div>
                 <div class="summary-item">
                     <h3 style="color: #fd7e14;"><?php echo $afternoon_absent; ?></h3>
-                    <p>🌙 Afternoon Session</p>
+                    <p>Afternoon Session</p>
                 </div>
                 <div class="summary-item">
                     <h3 style="color: #dc3545;"><?php echo count($absent_records); ?></h3>
-                    <p>📊 Total Absent Records</p>
+                    <p>Total Absent</p>
                 </div>
             </div>
             
@@ -392,10 +132,10 @@ while($row = mysqli_fetch_assoc($absent_result)) {
                 <div class="bulk-actions">
                     <div class="select-all">
                         <input type="checkbox" id="selectAllCheckbox">
-                        <label for="selectAllCheckbox">✓ Select All Records</label>
+                        <label for="selectAllCheckbox">Select All Records</label>
                     </div>
                     <div>
-                        <button type="submit" name="bulk_update" class="btn-bulk">📋 Update Selected Records</button>
+                        <button type="submit" name="bulk_update" class="btn-update">Update</button>
                     </div>
                 </div>
                 

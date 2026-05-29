@@ -132,212 +132,15 @@ function getStatusBadge($status) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - Attendance System</title>
-<style>
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }
-    
-    body {
-        background: #f0f2f5;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
-    
-    .main-container {
-        max-width: 1400px;
-        margin: 100px auto 40px;
-        padding: 0 20px;
-    }
-    
-    .time-card {
-        background: white;
-        border-radius: 12px;
-        padding: 25px;
-        margin-bottom: 25px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-    }
-
-    .time-card-left h3 {
-        color: #333;
-        font-size: 20px;
-        margin-bottom: 5px;
-    }
-
-    .time-card-right {
-        text-align: right;
-    }
-
-    .date-display {
-        color: #999;
-        font-size: 14px;
-        margin-bottom: 5px;
-    }
-
-    .time-card-right h1 {
-        color: #dc3545;
-        font-size: 48px;
-        margin-bottom: 5px;
-        font-weight: bold;
-    }
-    
-    .stats-section {
-        margin-bottom: 25px;
-    }
-    
-    .stats-title {
-        font-size: 14px;
-        font-weight: bold;
-        margin-bottom: 10px;
-        color: #555;
-        padding-left: 5px;
-    }
-    
-    .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(5, 1fr);
-        gap: 15px;
-    }
-    
-    .stat-card {
-        background: white;
-        border-radius: 12px;
-        padding: 15px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        border-top: 4px solid #dc3545;
-    }
-    
-    .stat-card.morning { border-top-color: #007bff; }
-    .stat-card.afternoon { border-top-color: #fd7e14; }
-    
-    .stat-info h6 {
-        color: #666;
-        font-size: 12px;
-        margin-bottom: 5px;
-    }
-    
-    .stat-info h2 {
-        font-size: 28px;
-        color: #333;
-        margin-bottom: 5px;
-    }
-    
-    .stat-info small {
-        color: #999;
-        font-size: 10px;
-    }
-    
-    .stat-icon {
-        font-size: 32px;
-    }
-    
-    .card {
-        background: white;
-        border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    }
-    
-    .card-header {
-        background: #dc3545;
-        color: white;
-        padding: 15px 20px;
-    }
-    
-    .card-header h5 {
-        margin: 0;
-        font-size: 16px;
-    }
-    
-    .card-body {
-        padding: 20px;
-    }
-    
-    .table-responsive {
-        overflow-x: auto;
-    }
-    
-    .data-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 13px;
-    }
-    
-    .data-table th {
-        background: #343a40;
-        color: white;
-        padding: 12px;
-        text-align: center;
-    }
-    
-    .data-table td {
-        padding: 10px;
-        text-align: center;
-        border-bottom: 1px solid #eee;
-    }
-    
-    .data-table tbody tr:hover {
-        background: #f8f9fa;
-    }
-    
-    .badge {
-        padding: 4px 10px;
-        border-radius: 20px;
-        font-size: 11px;
-        display: inline-block;
-    }
-    
-    .badge-success { background: #28a745; color: white; }
-    .badge-warning { background: #ffc107; color: #333; }
-    .badge-danger { background: #dc3545; color: white; }
-    .badge-info { background: #17a2b8; color: white; }
-    .badge-primary { background: #007bff; color: white; }
-    
-    .auto-mark-notice {
-        background: #e8f4fd;
-        padding: 10px 15px;
-        border-radius: 8px;
-        margin-bottom: 20px;
-        font-size: 13px;
-        color: #007bff;
-        border-left: 4px solid #007bff;
-    }
-    
-    @media (max-width: 992px) {
-        .stats-grid {
-            grid-template-columns: repeat(3, 1fr);
-        }
-    }
-    
-    @media (max-width: 768px) {
-        .main-container {
-            margin-top: 80px;
-        }
-        .stats-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-        .data-table th,
-        .data-table td {
-            padding: 6px;
-            font-size: 11px;
-        }
-    }
-</style>
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="dashboard_admin.css">
 </head>
 <body>
 <div class="main-container">
     <!-- Welcome Section -->
     <div class="time-card">
         <div class="time-card-left">
-            <h3>Welcome back, <?php echo $_SESSION['user_name']; ?>!</h3>
+            <h3>Welcome back, <?php echo isset($_SESSION['user_name']) ? htmlspecialchars($_SESSION['user_name']) : 'Admin'; ?>!</h3>
         </div>
         <div class="time-card-right">
             <div class="date-display" id="currentDate"></div>
@@ -447,7 +250,7 @@ function getStatusBadge($status) {
         </div>
     </div>
 
-    <!-- Employee Details Table -->
+    <!-- Employee Details Table with Enhanced Header Borders & Session Colors -->
     <div class="card">
         <div class="card-header">
             <h5>Today's Employee Attendance Details</h5>
@@ -456,14 +259,16 @@ function getStatusBadge($status) {
             <div class="table-responsive">
                 <table class="data-table">
                     <thead>
+                        <!-- First header row: session grouping with representative colors -->
                         <tr>
                             <th rowspan="2">Employee Code</th>
                             <th rowspan="2">Employee Name</th>
                             <th rowspan="2">Department</th>
                             <th rowspan="2">Position</th>
-                            <th colspan="3">Morning Session (9:00 - 12:00)</th>
-                            <th colspan="3">Afternoon Session (13:00 - 18:00)</th>
+                            <th colspan="3" class="morning-group">🌅 Morning Session (9:00 - 12:00)</th>
+                            <th colspan="3" class="afternoon-group">🌙 Afternoon Session (13:00 - 18:00)</th>
                         </tr>
+                        <!-- Second header row: sub-columns with session hint colors -->
                         <tr>
                             <th>Check In</th>
                             <th>Check Out</th>
@@ -487,12 +292,12 @@ function getStatusBadge($status) {
                                 <td><?php echo htmlspecialchars($row['department']); ?></td>
                                 <td><?php echo htmlspecialchars($row['position']); ?></td>
                                 
-                                <!-- Morning Session -->
+                                <!-- Morning Session Data -->
                                 <td><?php echo $row['morning_in'] ? date('h:i A', strtotime($row['morning_in'])) : '-'; ?></td>
                                 <td><?php echo $row['morning_out'] ? date('h:i A', strtotime($row['morning_out'])) : '-'; ?></td>
                                 <td><span class="badge <?php echo $morning_badge['class']; ?>"><?php echo $morning_badge['text']; ?></span></td>
                                 
-                                <!-- Afternoon Session -->
+                                <!-- Afternoon Session Data -->
                                 <td><?php echo $row['afternoon_in'] ? date('h:i A', strtotime($row['afternoon_in'])) : '-'; ?></td>
                                 <td><?php echo $row['afternoon_out'] ? date('h:i A', strtotime($row['afternoon_out'])) : '-'; ?></td>
                                 <td><span class="badge <?php echo $afternoon_badge['class']; ?>"><?php echo $afternoon_badge['text']; ?></span></td>
@@ -500,7 +305,7 @@ function getStatusBadge($status) {
                             <?php endwhile; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="10" class="text-center">No employees found</td
+                                <td colspan="10" class="text-center">No employees found</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>

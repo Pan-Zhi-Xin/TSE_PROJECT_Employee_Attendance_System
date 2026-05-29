@@ -52,267 +52,17 @@ while($row = mysqli_fetch_assoc($result)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Employee List - Admin Dashboard</title>
+    <title>Employee List</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            background: #f0f2f5;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        /* Centered Main Container */
-        .main-container {
-            max-width: 1400px;
-            margin: 100px auto 40px;
-            padding: 0 20px;
-        }
-        
-        /* Card Styles */
-        .card {
-            background: white;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        }
-        
-        .card-header {
-            background: #dc3545;
-            color: white;
-            padding: 15px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-        
-        .card-header h5 {
-            margin: 0;
-            font-size: 18px;
-        }
-        
-        .btn-add {
-            background: white;
-            color: #dc3545;
-            border: none;
-            padding: 8px 20px;
-            border-radius: 20px;
-            font-size: 14px;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.3s;
-            font-weight: 500;
-        }
-        
-        .btn-add:hover {
-            background: #f8f9fa;
-            transform: translateY(-1px);
-        }
-        
-        .search-area {
-            background: #f8f9fa;
-            padding: 15px 20px;
-            border-bottom: 1px solid #eee;
-            display: flex;
-            justify-content: flex-end;
-        }
-        
-        .search-box {
-            padding: 10px 15px;
-            border: 1px solid #ddd;
-            border-radius: 25px;
-            font-size: 14px;
-            width: 300px;
-            outline: none;
-            transition: all 0.3s;
-        }
-        
-        .search-box:focus {
-            border-color: #dc3545;
-        }
-        
-        .card-body {
-            padding: 20px;
-        }
-        
-        /* Table Styles */
-        .table-responsive {
-            overflow-x: auto;
-        }
-        
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 14px;
-        }
-        
-        .data-table thead {
-            background: #343a40;
-            color: white;
-        }
-        
-        .data-table th,
-        .data-table td {
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid #eee;
-            vertical-align: middle;
-        }
-        
-        .data-table tbody tr:hover {
-            background: #f8f9fa;
-        }
-        
-        /* Profile Picture Styles */
-        .profile-img {
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid #dc3545;
-        }
-        
-        .profile-placeholder {
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
-            background: #f0f2f5;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #999;
-            font-size: 20px;
-            border: 2px solid #dc3545;
-        }
-        
-        /* Status Styles */
-        .status-active {
-            color: #28a745;
-            font-weight: bold;
-        }
-        
-        .status-inactive {
-            color: #dc3545;
-            font-weight: bold;
-        }
-        
-        /* Button Styles */
-        .btn-edit {
-            background: #ffc107;
-            color: #333;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 12px;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            transition: all 0.3s;
-        }
-        
-        .btn-edit:hover {
-            background: #e0a800;
-        }
-        
-        .btn-deactivate {
-            background: #dc3545;
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 12px;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            transition: all 0.3s;
-        }
-        
-        .btn-deactivate:hover {
-            background: #c82333;
-        }
-        
-        .btn-activate {
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 12px;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            transition: all 0.3s;
-        }
-        
-        .btn-activate:hover {
-            background: #218838;
-        }
-        
-        .action-buttons {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        
-        .inactive-row {
-            background-color: #fff5f5;
-        }
-        
-        /* Responsive */
-        @media (max-width: 992px) {
-            .main-container {
-                max-width: 100%;
-            }
-            .data-table th,
-            .data-table td {
-                padding: 8px 10px;
-                font-size: 12px;
-            }
-        }
-        
-        @media (max-width: 768px) {
-            .main-container {
-                margin-top: 80px;
-                padding: 0 15px;
-            }
-            .card-header {
-                flex-direction: column;
-                text-align: center;
-            }
-            .search-area {
-                justify-content: center;
-            }
-            .search-box {
-                width: 100%;
-            }
-            .action-buttons {
-                flex-direction: column;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="employee_list.css">
 </head>
 <body>
 <div class="main-container">
     <div class="card">
         <div class="card-header">
-            <h5><i class="fas fa-users"></i> Employee List</h5>
+            <h5> Employee List</h5>
             <a href="add_employee.php" class="btn-add">
-                <i class="fas fa-plus"></i> Add New Employee
+                <strong>+</strong>Add New Employee
             </a>
         </div>
         
@@ -371,11 +121,11 @@ while($row = mysqli_fetch_assoc($result)) {
                                     </a>
                                     <?php if($emp['status'] == 'Active'): ?>
                                     <a href="?deactivate=1&id=<?php echo $emp['employee_id']; ?>" class="btn-deactivate" onclick="return confirm('Are you sure you want to deactivate this employee?')">
-                                        <i class="fas fa-trash"></i> Deactivate
+                                        Deactivate
                                     </a>
                                     <?php else: ?>
                                     <a href="?activate=1&id=<?php echo $emp['employee_id']; ?>" class="btn-activate" onclick="return confirm('Are you sure you want to activate this employee?')">
-                                        <i class="fas fa-check"></i> Activate
+                                        Activate
                                     </a>
                                     <?php endif; ?>
                                 </div>
