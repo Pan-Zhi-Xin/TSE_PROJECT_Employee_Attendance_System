@@ -165,13 +165,3 @@ body {
 .badge-danger { background: #dc3545; color: white; }
 .badge-info { background: #17a2b8; color: white; }
 .badge-primary { background: #007bff; color: white; }
-
-.auto-mark-notice {
-    background: #e8f4fd;
-    padding: 10px 15px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    font-size: 13px;
-    color: #007bff;
-    border-left: 4px solid #007bff;
-}

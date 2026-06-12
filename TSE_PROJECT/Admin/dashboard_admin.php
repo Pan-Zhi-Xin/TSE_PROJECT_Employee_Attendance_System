@@ -147,14 +147,6 @@ function getStatusBadge($status) {
             <h1 id="currentTime">--:--:--</h1>
         </div>
     </div>
-    
-    <?php if($created['morning'] > 0 || $created['afternoon'] > 0): ?>
-    <div class="auto-mark-notice">
-        <i class="fas fa-info-circle"></i> System automatically created 
-        <?php echo $created['morning']; ?> morning session(s) and 
-        <?php echo $created['afternoon']; ?> afternoon session(s) as absent.
-    </div>
-    <?php endif; ?>
 
     <!-- Morning Session Stats -->
     <div class="stats-section">

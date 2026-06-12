@@ -50,7 +50,7 @@ while($row = mysqli_fetch_assoc($emp_result)) {
             Generate Attendance Report
         </div>
         <div class="card-body">
-            <form method="POST" action="report_view.php" id="reportForm" target="_blank">
+            <form method="POST" action="report_view.php" id="reportForm">
                 <div class="form-row">
                     <div class="form-group">
                         <label>Report Type</label>
