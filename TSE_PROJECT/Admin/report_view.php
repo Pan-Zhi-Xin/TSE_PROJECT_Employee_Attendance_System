@@ -1,7 +1,405 @@
 <?php
 session_start();
 
-// CHECK FOR EXPORT ACTION FIRST - MUST BE BEFORE ANY OUTPUT
+require('../fpdf/fpdf.php');
+include '../db_connection.php';
+
+// Set timezone
+date_default_timezone_set('Asia/Kuala_Lumpur');
+
+// Session times
+$morning_start = '09:00:00';
+$morning_end = '12:00:00';
+$afternoon_start = '13:00:00';
+$afternoon_end = '18:00:00';
+
+// Helper functions
+function calculateWorkingHoursExport($check_in_time, $check_out_time, $session) {
+    global $morning_start, $morning_end, $afternoon_start, $afternoon_end;
+    
+    if(!$check_in_time) return 0;
+    
+    $work_start = ($session == 'morning') ? $morning_start : $afternoon_start;
+    $work_end = ($session == 'morning') ? $morning_end : $afternoon_end;
+    
+    $check_in_only = date('H:i:s', strtotime($check_in_time));
+    $actual_start = ($check_in_only > $work_start) ? $check_in_only : $work_start;
+    
+    if($check_out_time) {
+        $check_out_only = date('H:i:s', strtotime($check_out_time));
+        $actual_end = ($check_out_only < $work_end) ? $check_out_only : $work_end;
+        $hours = (strtotime($actual_end) - strtotime($actual_start)) / 3600;
+        return round($hours > 0 ? $hours : 0, 2);
+    }
+    return 0;
+}
+
+function calculateLateMinutesExport($check_in_time, $session) {
+    global $morning_start, $afternoon_start;
+    if(!$check_in_time) return 0;
+    
+    $work_start = ($session == 'morning') ? $morning_start : $afternoon_start;
+    $check_in_only = date('H:i:s', strtotime($check_in_time));
+    
+    if($check_in_only > $work_start) {
+        return round((strtotime($check_in_only) - strtotime($work_start)) / 60);
+    }
+    return 0;
+}
+
+function calculateEarlyLeaveMinutesExport($check_out_time, $session) {
+    global $morning_end, $afternoon_end;
+    if(!$check_out_time) return 0;
+    
+    $work_end = ($session == 'morning') ? $morning_end : $afternoon_end;
+    $check_out_only = date('H:i:s', strtotime($check_out_time));
+    
+    if($check_out_only < $work_end) {
+        return round((strtotime($work_end) - strtotime($check_out_only)) / 60);
+    }
+    return 0;
+}
+
+function getSessionStatusDisplayExport($row) {
+    if(isset($row['status']) && !empty($row['status'])) {
+        if($row['status'] == 'present') return ['status' => 'present', 'text' => 'Present'];
+        if($row['status'] == 'late') return ['status' => 'late', 'text' => 'Late'];
+        if($row['status'] == 'half_day') return ['status' => 'half_day', 'text' => 'Half Day'];
+        if($row['status'] == 'holiday') return ['status' => 'holiday', 'text' => 'Holiday'];
+        if($row['status'] == 'absent') return ['status' => 'absent', 'text' => 'Absent'];
+    }
+    
+    if(!$row['check_in_time']) return ['status' => 'absent', 'text' => 'Absent'];
+    
+    $session = $row['session'];
+    $is_late = calculateLateMinutesExport($row['check_in_time'], $session) > 0;
+    
+    return $is_late ? ['status' => 'late', 'text' => 'Late'] : ['status' => 'present', 'text' => 'Present'];
+}
+
+function getEmployeeNameForDisplayPDF($conn, $employee_id) {
+    if($employee_id == 'all') return 'All Employees';
+    $query = "SELECT u.name, e.employee_code FROM employees e JOIN users u ON e.user_id = u.user_id WHERE e.employee_id = '$employee_id'";
+    $result = mysqli_query($conn, $query);
+    if($row = mysqli_fetch_assoc($result)) {
+        return $row['employee_code'] . ' - ' . $row['name'];
+    }
+    return 'Selected Employee';
+}
+// ============ PDF EXPORT ============
+if(isset($_GET['export_pdf']) && $_GET['export_pdf'] == '1') {
+    // Get export parameters
+    $export_report_type = $_GET['report_type'] ?? '';
+    $export_start_date = $_GET['start_date'] ?? '';
+    $export_end_date = $_GET['end_date'] ?? '';
+    $export_selected_employee = $_GET['employee_id'] ?? 'all';
+    
+    $emp_condition = ($export_selected_employee != 'all') ? "AND a.employee_id = '$export_selected_employee'" : "";
+    
+    $query = "SELECT a.*, a.session as session, u.name, e.employee_code, e.department, e.position, e.employee_id, a.notes as reason
+              FROM attendance_records a
+              JOIN employees e ON a.employee_id = e.employee_id
+              JOIN users u ON e.user_id = u.user_id
+              WHERE a.record_date BETWEEN '$export_start_date' AND '$export_end_date' $emp_condition
+              ORDER BY a.record_date, a.session ASC, a.check_in_time ASC";
+    
+    $result = mysqli_query($conn, $query);
+    $export_data = [];
+    
+    while($row = mysqli_fetch_assoc($result)) {
+        $session = $row['session'];
+        $row['session'] = $session;
+        $row['calculated_working_hours'] = calculateWorkingHoursExport($row['check_in_time'], $row['check_out_time'], $session);
+        $row['calculated_late_minutes'] = calculateLateMinutesExport($row['check_in_time'], $session);
+        $row['calculated_early_minutes'] = calculateEarlyLeaveMinutesExport($row['check_out_time'], $session);
+        $row['display_status'] = getSessionStatusDisplayExport($row);
+        $export_data[] = $row;
+    }
+    
+    // Generate filename
+    if($export_report_type == 'daily') {
+        $filename = "Attendance_Report_Daily_" . date('d-m-Y', strtotime($export_start_date));
+    } elseif($export_report_type == 'monthly') {
+        $filename = "Attendance_Report_Monthly_" . date('F_Y', strtotime($export_start_date));
+    } else {
+        $filename = "Attendance_Report_Custom_" . date('d-m-Y', strtotime($export_start_date)) . "_to_" . date('d-m-Y', strtotime($export_end_date));
+    }
+    
+    // PDF Class with improved table handling
+    class PDF extends FPDF {
+        // Disable header on subsequent pages
+        function Header() {
+            // Only show header on first page
+            if($this->PageNo() == 1) {
+                $this->SetFont('Arial', 'B', 16);
+                $this->Cell(0, 10, 'ATTENDANCE REPORT', 0, 1, 'C');
+                $this->Ln(5);
+            }
+        }
+        
+        function Footer() {
+            $this->SetY(-15);
+            $this->SetFont('Arial', 'I', 8);
+            $this->Cell(0, 10, 'Page ' . $this->PageNo() . ' | Generated: ' . date('d-m-Y H:i:s'), 0, 0, 'C');
+        }
+        
+        function ImprovedTable($header, $data, $colWidths) {
+            // Header with border
+            $this->SetFont('Arial', 'B', 8);
+            $this->SetFillColor(220, 220, 220);
+            $this->SetDrawColor(0, 0, 0);
+            $this->SetLineWidth(0.2);
+            
+            for($i = 0; $i < count($header); $i++) {
+                $this->Cell($colWidths[$i], 8, $header[$i], 1, 0, 'C', true);
+            }
+            $this->Ln();
+            
+            // Data with borders
+            $this->SetFont('Arial', '', 7);
+            $this->SetFillColor(255, 255, 255);
+            $fill = false;
+            
+            foreach($data as $row) {
+                // Check if we need a page break
+                if($this->GetY() > 260) {
+                    $this->AddPage();
+                    // Re-print table header on new page (but not the main report header)
+                    for($i = 0; $i < count($header); $i++) {
+                        $this->Cell($colWidths[$i], 8, $header[$i], 1, 0, 'C', true);
+                    }
+                    $this->Ln();
+                }
+                
+                for($i = 0; $i < count($row); $i++) {
+                    $this->Cell($colWidths[$i], 7, $row[$i], 1, 0, 'L', $fill);
+                }
+                $this->Ln();
+                $fill = !$fill;
+            }
+        }
+        
+        function SummaryTable($title, $summaryData) {
+            $this->Ln(8);
+            $this->SetFont('Arial', 'B', 12);
+            $this->Cell(0, 10, $title, 0, 1, 'C');
+            $this->Ln(2);
+            
+            $this->SetFont('Arial', '', 9);
+            $this->SetDrawColor(0, 0, 0);
+            $this->SetLineWidth(0.2);
+            
+            // Calculate total width for centering (2 columns)
+            $col1Width = 80;
+            $col2Width = 50;
+            $totalWidth = $col1Width + $col2Width;
+            $startX = ($this->GetPageWidth() - $totalWidth) / 2;
+            
+            foreach($summaryData as $index => $item) {
+                $this->SetX($startX);
+                $this->SetFont('Arial', 'B', 9);
+                $this->Cell($col1Width, 8, $item['label'], 1, 0, 'L', true);
+                $this->SetFont('Arial', '', 9);
+                $this->Cell($col2Width, 8, $item['value'], 1, 1, 'L', false);
+            }
+        }
+    }
+    
+    $pdf = new PDF('L', 'mm', 'A4');
+    $pdf->AliasNbPages();
+    $pdf->AddPage();
+    $pdf->SetMargins(8, 10, 8);
+    $pdf->SetAutoPageBreak(true, 15);
+    
+    // Report Header Info (only on first page, outside the Header() function)
+    $pdf->SetFont('Arial', '', 10);
+    $employee_display = getEmployeeNameForDisplayPDF($conn, $export_selected_employee);
+    
+    if($export_report_type == 'daily') {
+        $pdf->Cell(0, 7, 'Report Type: Daily Report', 0, 1, 'C');
+        $pdf->Cell(0, 7, 'Date: ' . date('d-m-Y', strtotime($export_start_date)), 0, 1, 'C');
+    } elseif($export_report_type == 'monthly') {
+        $pdf->Cell(0, 7, 'Report Type: Monthly Report', 0, 1, 'C');
+        $pdf->Cell(0, 7, 'Period: ' . date('F Y', strtotime($export_start_date)), 0, 1, 'C');
+    } else {
+        $pdf->Cell(0, 7, 'Report Type: Custom Date Range Report', 0, 1, 'C');
+        $pdf->Cell(0, 7, 'Period: ' . date('d-m-Y', strtotime($export_start_date)) . ' to ' . date('d-m-Y', strtotime($export_end_date)), 0, 1, 'C');
+    }
+    $pdf->Cell(0, 7, 'Employee: ' . $employee_display, 0, 1, 'C');
+    $pdf->Cell(0, 7, 'Generated On: ' . date('d-m-Y H:i:s'), 0, 1, 'C');
+    $pdf->Ln(8);
+    
+    if($export_report_type == 'daily') {
+        $morning_export = [];
+        $afternoon_export = [];
+        foreach($export_data as $row) {
+            if($row['session'] == 'morning') {
+                $morning_export[] = $row;
+            } else {
+                $afternoon_export[] = $row;
+            }
+        }
+        
+        // MORNING SESSION
+        if(count($morning_export) > 0) {
+            $pdf->SetFont('Arial', 'B', 11);
+            $pdf->Cell(0, 8, 'MORNING SESSION (9:00 - 12:00)', 0, 1, 'C');
+            $pdf->Ln(2);
+            
+            // COLUMN WIDTHS - ADJUST THESE VALUES TO CHANGE COLUMN WIDTHS (in mm)
+            // Total width should be around 270-280mm to fit A4 Landscape
+            $header = array('Emp Code', 'Name', 'Department', 'Position', 'Check In', 'Check Out', 'Hours', 'Status', 'Late', 'Early', 'Reason');
+            $colWidths = array(18, 40, 30, 30, 18, 18, 14, 16, 14, 14, 40);
+            
+            $data = [];
+            
+            foreach($morning_export as $row) {
+                $data[] = array(
+                    $row['employee_code'],
+                    $row['name'],
+                    $row['department'],
+                    $row['position'],
+                    $row['check_in_time'] ? date('h:i', strtotime($row['check_in_time'])) : '-',
+                    $row['check_out_time'] ? date('h:i', strtotime($row['check_out_time'])) : '-',
+                    number_format($row['calculated_working_hours'], 2),
+                    $row['display_status']['text'],
+                    $row['calculated_late_minutes'] > 0 ? $row['calculated_late_minutes'] : '0',
+                    $row['calculated_early_minutes'] > 0 ? $row['calculated_early_minutes'] : '0',
+                    str_replace(array("\r\n", "\n", "\r"), " ", $row['reason'] ?? '-')
+                );
+            }
+            
+            $pdf->ImprovedTable($header, $data, $colWidths);
+            $pdf->Ln(3);
+        } else {
+            $pdf->SetFont('Arial', '', 10);
+            $pdf->Cell(0, 8, 'No records found for morning session', 0, 1, 'C');
+            $pdf->Ln(3);
+        }
+        
+        // AFTERNOON SESSION
+        if(count($afternoon_export) > 0) {
+            $pdf->SetFont('Arial', 'B', 11);
+            $pdf->Cell(0, 8, 'AFTERNOON SESSION (13:00 - 18:00)', 0, 1, 'C');
+            $pdf->Ln(2);
+            
+            $data = [];
+            foreach($afternoon_export as $row) {
+                $data[] = array(
+                    date('d-m-Y', strtotime($row['record_date'])),
+                    $row['employee_code'],
+                    $row['name'],
+                    $row['department'],
+                    $row['position'],
+                    ($row['session'] == 'morning') ? 'AM' : 'PM',
+                    $row['check_in_time'] ? date('h:i', strtotime($row['check_in_time'])) : '-',
+                    $row['check_out_time'] ? date('h:i', strtotime($row['check_out_time'])) : '-',
+                    number_format($row['calculated_working_hours'], 2),
+                    $row['display_status']['text'],
+                    $row['calculated_late_minutes'] > 0 ? $row['calculated_late_minutes'] : '0',
+                    $row['calculated_early_minutes'] > 0 ? $row['calculated_early_minutes'] : '0',
+                    str_replace(array("\r\n", "\n", "\r"), " ", $row['reason'] ?? '-')
+                );
+            }
+            
+            $pdf->ImprovedTable($header, $data, $colWidths);
+            $pdf->Ln(3);
+        } else {
+            $pdf->SetFont('Arial', '', 10);
+            $pdf->Cell(0, 8, 'No records found for afternoon session', 0, 1, 'C');
+            $pdf->Ln(3);
+        }
+        
+        // SUMMARY
+        $present = $late = $absent = $half_day = $holiday = $total_hours = 0;
+        foreach($export_data as $row) {
+            $status = $row['display_status']['status'];
+            if($status == 'present') $present++;
+            elseif($status == 'late') $late++;
+            elseif($status == 'absent') $absent++;
+            elseif($status == 'half_day') $half_day++;
+            elseif($status == 'holiday') $holiday++;
+            $total_hours += $row['calculated_working_hours'];
+        }
+        
+        $summaryData = array(
+            array('label' => 'Present', 'value' => $present),
+            array('label' => 'Late', 'value' => $late),
+            array('label' => 'Absent', 'value' => $absent),
+            array('label' => 'Half Day', 'value' => $half_day),
+            array('label' => 'Holiday', 'value' => $holiday),
+            array('label' => 'Total Working Hours', 'value' => number_format($total_hours, 1) . ' hrs')
+        );
+        
+        $pdf->SummaryTable('SUMMARY', $summaryData);
+        
+    } else {
+        // MONTHLY/CUSTOM REPORT
+        if(count($export_data) > 0) {
+            
+            $header = array('Date', 'Code', 'Name', 'Department', 'Position', 'Session', 'In', 'Out', 'Hrs', 'Status', 'Late', 'Early', 'Reason');
+            $colWidths = array(18, 15, 32, 30, 30, 12, 15, 15, 12, 15, 12, 12, 38);
+            
+            $data = [];
+            
+            foreach($export_data as $row) {
+                $data[] = array(
+                    date('d-m-Y', strtotime($row['record_date'])),
+                    $row['employee_code'],
+                    $row['name'],
+                    $row['department'],
+                    $row['position'],       
+                    ($row['session'] == 'morning') ? 'AM' : 'PM',
+                    $row['check_in_time'] ? date('h:i', strtotime($row['check_in_time'])) : '-',
+                    $row['check_out_time'] ? date('h:i', strtotime($row['check_out_time'])) : '-',
+                    number_format($row['calculated_working_hours'], 2),
+                    substr($row['display_status']['text'], 0, 6),
+                    $row['calculated_late_minutes'] > 0 ? $row['calculated_late_minutes'] : '0',
+                    $row['calculated_early_minutes'] > 0 ? $row['calculated_early_minutes'] : '0',
+                    substr(str_replace(array("\r\n", "\n", "\r"), " ", $row['reason'] ?? '-'), 0, 30)
+                );
+            }
+            
+            $pdf->ImprovedTable($header, $data, $colWidths);
+            $pdf->Ln(5);
+        } else {
+            $pdf->SetFont('Arial', '', 10);
+            $pdf->Cell(0, 8, 'No records found', 0, 1, 'C');
+            $pdf->Ln(5);
+        }
+        
+        // SUMMARY
+        $present = $late = $absent = $half_day = $holiday = $total_hours = $total_late = $total_early = 0;
+        foreach($export_data as $row) {
+            $status = $row['display_status']['status'];
+            if($status == 'present') $present++;
+            elseif($status == 'late') $late++;
+            elseif($status == 'absent') $absent++;
+            elseif($status == 'half_day') $half_day++;
+            elseif($status == 'holiday') $holiday++;
+            $total_hours += $row['calculated_working_hours'];
+            $total_late += $row['calculated_late_minutes'];
+            $total_early += $row['calculated_early_minutes'];
+        }
+        
+        $summaryData = array(
+            array('label' => 'Present', 'value' => $present),
+            array('label' => 'Late', 'value' => $late),
+            array('label' => 'Absent', 'value' => $absent),
+            array('label' => 'Half Day', 'value' => $half_day),
+            array('label' => 'Holiday', 'value' => $holiday),
+            array('label' => 'Total Late Minutes', 'value' => $total_late),
+            array('label' => 'Total Early Minutes', 'value' => $total_early),
+            array('label' => 'Total Working Hours', 'value' => number_format($total_hours, 1) . ' hrs')
+        );
+        
+        $pdf->SummaryTable('SUMMARY', $summaryData);
+    }
+    
+    // Output PDF
+    $pdf->Output('D', $filename . '.pdf');
+    exit();
+}
 if(isset($_GET['export_excel']) && $_GET['export_excel'] == '1') {
     // Include only db_connection for export
     include '../db_connection.php';
@@ -15,69 +413,6 @@ if(isset($_GET['export_excel']) && $_GET['export_excel'] == '1') {
     $afternoon_start = '13:00:00';
     $afternoon_end = '18:00:00';
 
-    
-    function calculateWorkingHoursExport($check_in_time, $check_out_time, $session) {
-        global $morning_start, $morning_end, $afternoon_start, $afternoon_end;
-        
-        if(!$check_in_time) return 0;
-        
-        $work_start = ($session == 'morning') ? $morning_start : $afternoon_start;
-        $work_end = ($session == 'morning') ? $morning_end : $afternoon_end;
-        
-        $check_in_only = date('H:i:s', strtotime($check_in_time));
-        $actual_start = ($check_in_only > $work_start) ? $check_in_only : $work_start;
-        
-        if($check_out_time) {
-            $check_out_only = date('H:i:s', strtotime($check_out_time));
-            $actual_end = ($check_out_only < $work_end) ? $check_out_only : $work_end;
-            $hours = (strtotime($actual_end) - strtotime($actual_start)) / 3600;
-            return round($hours > 0 ? $hours : 0, 2);
-        }
-        return 0;
-    }
-    
-    function calculateLateMinutesExport($check_in_time, $session) {
-        global $morning_start, $afternoon_start;
-        if(!$check_in_time) return 0;
-        
-        $work_start = ($session == 'morning') ? $morning_start : $afternoon_start;
-        $check_in_only = date('H:i:s', strtotime($check_in_time));
-        
-        if($check_in_only > $work_start) {
-            return round((strtotime($check_in_only) - strtotime($work_start)) / 60);
-        }
-        return 0;
-    }
-    
-    function calculateEarlyLeaveMinutesExport($check_out_time, $session) {
-        global $morning_end, $afternoon_end;
-        if(!$check_out_time) return 0;
-        
-        $work_end = ($session == 'morning') ? $morning_end : $afternoon_end;
-        $check_out_only = date('H:i:s', strtotime($check_out_time));
-        
-        if($check_out_only < $work_end) {
-            return round((strtotime($work_end) - strtotime($check_out_only)) / 60);
-        }
-        return 0;
-    }
-    
-    function getSessionStatusDisplayExport($row) {
-        if(isset($row['status']) && !empty($row['status'])) {
-            if($row['status'] == 'present') return ['status' => 'present', 'text' => 'Present'];
-            if($row['status'] == 'late') return ['status' => 'late', 'text' => 'Late'];
-            if($row['status'] == 'half_day') return ['status' => 'half_day', 'text' => 'Half Day'];
-            if($row['status'] == 'holiday') return ['status' => 'holiday', 'text' => 'Holiday'];
-            if($row['status'] == 'absent') return ['status' => 'absent', 'text' => 'Absent'];
-        }
-        
-        if(!$row['check_in_time']) return ['status' => 'absent', 'text' => 'Absent'];
-        
-        $session = $row['session'];
-        $is_late = calculateLateMinutesExport($row['check_in_time'], $session) > 0;
-        
-        return $is_late ? ['status' => 'late', 'text' => 'Late'] : ['status' => 'present', 'text' => 'Present'];
-    }
     
     // Get export parameters
     $export_report_type = $_GET['report_type'] ?? '';
@@ -383,7 +718,7 @@ if($export_report_type == 'daily') {
         </tr>';
         echo '<tr><td style="text-align: left;">Holiday</td><td style="text-align: center;">' . $holiday . '</td>
         </tr>';
-        echo '<tr><td style="text-align: left;"><strong>Total Working Hours</strong></td<td style="text-align: center;"><strong>' . number_format($total_hours, 1) . '</strong></td>
+        echo '<tr><td style="text-align: left;"><strong>Total Working Hours</strong></td><td style="text-align: center;"><strong>' . number_format($total_hours, 1) . '</strong></td>
         </tr>';
         echo '</table>';
         
@@ -494,7 +829,7 @@ if($export_report_type == 'daily') {
     
     exit();
 }
-
+// ============ NORMAL PAGE LOAD ============
 include '../db_connection.php';
 include 'header_admin.php';
 
@@ -507,14 +842,13 @@ $morning_end = '12:00:00';
 $afternoon_start = '13:00:00';
 $afternoon_end = '18:00:00';
 
-// Helper function to get session from check_in time (fallback)
+// Helper functions
 function getSessionFromTime($check_in_time) {
     if(!$check_in_time) return 'unknown';
     $hour = date('H', strtotime($check_in_time));
     return ($hour < 12) ? 'morning' : 'afternoon';
 }
 
-// Helper function to calculate working hours for a session
 function calculateWorkingHours($check_in_time, $check_out_time, $session) {
     global $morning_start, $morning_end, $afternoon_start, $afternoon_end;
     
@@ -535,7 +869,6 @@ function calculateWorkingHours($check_in_time, $check_out_time, $session) {
     return 0;
 }
 
-// Helper function to calculate late minutes
 function calculateLateMinutes($check_in_time, $session) {
     global $morning_start, $afternoon_start;
     if(!$check_in_time) return 0;
@@ -549,7 +882,6 @@ function calculateLateMinutes($check_in_time, $session) {
     return 0;
 }
 
-// Helper function to calculate early leave minutes
 function calculateEarlyLeaveMinutes($check_out_time, $session) {
     global $morning_end, $afternoon_end;
     if(!$check_out_time) return 0;
@@ -563,7 +895,6 @@ function calculateEarlyLeaveMinutes($check_out_time, $session) {
     return 0;
 }
 
-// Helper function to get status for a session (from database or calculated)
 function getSessionStatusDisplay($row) {
     if(isset($row['status']) && !empty($row['status'])) {
         if($row['status'] == 'present') return ['status' => 'present', 'class' => 'status-present', 'text' => 'Present'];
@@ -616,19 +947,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $selected_month = $month_year_parts[1] ?? date('m');
             $selected_year = $month_year_parts[0] ?? date('Y');
         } else {
-            // Fallback for old format
             $selected_month = $_POST['month'] ?? date('m');
             $selected_year = $_POST['year'] ?? date('Y');
         }
         
         $selected_month = str_pad($selected_month, 2, '0', STR_PAD_LEFT);
         
-        // Validate future month
         if($selected_year > $current_year || ($selected_year == $current_year && $selected_month > $current_month)) {
             $no_data_message = "Cannot select future month. Please select a month up to " . date('F Y');
         }
         
-        // Calculate start and end dates for the month
         $start_date = "$selected_year-$selected_month-01";
         $end_date = date('Y-m-t', strtotime($start_date));
         
@@ -706,218 +1034,13 @@ if($report_type == 'daily' && $report_data) {
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Attendance Report Results</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            background: #f0f2f5;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            padding-top: 80px;
-            margin-top: 60px;
-        }
-        
-        .main-container {
-            max-width: 1400px;
-            margin: 20px auto 40px;
-            padding: 0 20px;
-        }
-        
-        .card {
-            background: white;
-            border-radius: 8px;
-            margin-bottom: 25px;
-            border: 1px solid #ddd;
-            overflow: hidden;
-        }
-        
-        .card-header {
-            background: #dc3545;
-            color: white;
-            padding: 12px 20px;
-            font-weight: bold;
-        }
-        
-        .card-body {
-            padding: 20px;
-        }
-        
-        .action-buttons {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-            justify-content: flex-end;
-        }
-        
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        
-        .btn-secondary:hover {
-            background: #5a6268;
-        }
-        
-        .btn-excel {
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        
-        .btn-excel:hover {
-            background: #218838;
-        }
-        
-        .btn-back {
-            background: #007bff;
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-            text-decoration: none;
-            display: inline-block;
-        }
-        
-        .btn-back:hover {
-            background: #0056b3;
-        }
-        
-        .table-responsive {
-            overflow-x: auto;
-        }
-        
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 12px;
-        }
-        
-        .data-table th {
-            background: #343a40;
-            color: white;
-            padding: 10px;
-            text-align: left;
-        }
-        
-        .data-table td {
-            padding: 8px 10px;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .data-table tbody tr:hover {
-            background: #f8f9fa;
-        }
-        
-        .status-badge {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-        }
-        
-        .status-present { background: #28a745; color: white; }
-        .status-late { background: #ffc107; color: #333; }
-        .status-absent { background: #dc3545; color: white; }
-        .status-half-day { background: #6f42c1; color: white; }
-        .status-holiday { background: #007bff; color: white; }
-        
-        .session-morning { background: #e8f4fd; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
-        .session-afternoon { background: #fff4e6; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
-        
-        .summary-box {
-            background: #f8f9fa;
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 15px;
-            display: flex;
-            justify-content: space-around;
-            flex-wrap: wrap;
-            gap: 10px;
-            border: 1px solid #eee;
-        }
-        
-        .summary-item {
-            text-align: center;
-        }
-        
-        .summary-item h4 {
-            font-size: 20px;
-            color: #333;
-        }
-        
-        .summary-item p {
-            color: #666;
-            font-size: 10px;
-        }
-        
-        .section-title {
-            font-size: 16px;
-            font-weight: bold;
-            margin: 15px 0 10px 0;
-            padding: 8px 12px;
-            background: #007bff;
-            color: white;
-            border-radius: 5px;
-        }
-        
-        .no-data {
-            text-align: center;
-            padding: 40px;
-            color: #999;
-            font-size: 14px;
-        }
-        
-        .error-message {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 15px;
-            border: 1px solid #f5c6cb;
-            text-align: center;
-        }
-        
-        .header-actions {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        
-        .reason-text {
-            font-size: 11px;
-            color: #666;
-            max-width: 200px;
-            word-wrap: break-word;
-        }
-        
-        .reason-label {
-            font-size: 10px;
-            color: #999;
-            margin-bottom: 2px;
-        }
-    </style>
+    <link rel="stylesheet" href="report_view.css">
 </head>
 <body>
 <div class="main-container">
@@ -926,7 +1049,6 @@ if($report_type == 'daily' && $report_data) {
         <div class="action-buttons">
             <?php if($report_data !== null && count($report_data) > 0): ?>
                 <?php
-                // Build export URL with current parameters
                 $export_params = array(
                     'export_excel' => 1,
                     'report_type' => $report_type,
@@ -934,23 +1056,25 @@ if($report_type == 'daily' && $report_data) {
                     'end_date' => $end_date,
                     'employee_id' => $selected_employee_id
                 );
+                $pdf_params = array(
+                    'export_pdf' => 1,
+                    'report_type' => $report_type,
+                    'start_date' => $start_date,
+                    'end_date' => $end_date,
+                    'employee_id' => $selected_employee_id
+                );
                 $export_url = '?' . http_build_query($export_params);
+                $pdf_url = '?' . http_build_query($pdf_params);
                 ?>
-                <a href="<?php echo $export_url; ?>" class="btn-excel" style="text-decoration: none; display: inline-block;">📊 Export to Excel</a>
+                <a href="<?php echo $export_url; ?>" class="btn-excel">Export to Excel</a>
+                <a href="<?php echo $pdf_url; ?>" class="btn-pdf">Export to PDF</a>
             <?php endif; ?>
-            <button class="btn-secondary" onclick="window.print()">🖨️ Print Report</button>
-            <button class="btn-secondary" onclick="exportToPDF()">📄 Export to PDF</button>
+
         </div>
     </div>
     
     <?php if($no_data_message): ?>
-        <div class="card">
-            <div class="card-body">
-                <div class="error-message">
-                    ⚠️ <?php echo $no_data_message; ?>
-                </div>
-            </div>
-        </div>
+        <div class="card"><div class="card-body"><div class="error-message">⚠️ <?php echo $no_data_message; ?></div></div></div>
     <?php elseif($report_data !== null && count($report_data) > 0): ?>
         <div class="card" id="reportContent">
             <div class="card-header">
@@ -967,58 +1091,21 @@ if($report_type == 'daily' && $report_data) {
             </div>
             <div class="card-body">
                 <div class="summary-box">  
-                    <div class="summary-item">
-                        <h4 style="color: #28a745;"><?php echo $summary['present']; ?></h4>
-                        <p>Present</p>
-                    </div>
-                    <div class="summary-item">
-                        <h4 style="color: #ffc107;"><?php echo $summary['late']; ?></h4>
-                        <p>Late</p>
-                    </div>
-                    <div class="summary-item">
-                        <h4 style="color: #6f42c1;"><?php echo $summary['half_day']; ?></h4>
-                        <p>Half Day</p>
-                    </div>
-                    <div class="summary-item">
-                        <h4 style="color: #007bff;"><?php echo $summary['holiday']; ?></h4>
-                        <p>Holiday</p>
-                    </div>
-                    <div class="summary-item">
-                        <h4 style="color: #dc3545;"><?php echo $summary['absent']; ?></h4>
-                        <p>Absent</p>
-                    </div>
-                    <div class="summary-item">
-                        <h4 style="color: #17a2b8;"><?php echo number_format($summary['total_hours'], 1); ?></h4>
-                        <p>Total Hours</p>
-                    </div>
-                    <div class="summary-item">
-                        <h4 style="color: #dc3545;"><?php echo $summary['total_late_minutes']; ?></h4>
-                        <p>Late Mins</p>
-                    </div>
+                    <div class="summary-item"><h4><?php echo $summary['present']; ?></h4><p>Present</p></div>
+                    <div class="summary-item"><h4><?php echo $summary['late']; ?></h4><p>Late</p></div>
+                    <div class="summary-item"><h4><?php echo $summary['half_day']; ?></h4><p>Half Day</p></div>
+                    <div class="summary-item"><h4><?php echo $summary['holiday']; ?></h4><p>Holiday</p></div>
+                    <div class="summary-item"><h4><?php echo $summary['absent']; ?></h4><p>Absent</p></div>
+                    <div class="summary-item"><h4><?php echo number_format($summary['total_hours'], 1); ?></h4><p>Total Hours</p></div>
+                    <div class="summary-item"><h4><?php echo $summary['total_late_minutes']; ?></h4><p>Late Mins</p></div>
                 </div>
                 
                 <?php if($report_type == 'daily'): ?>
                     <!-- Morning Session Table -->
-                    <div class="section-title">
-                        🌅 Morning Session (9:00 - 12:00)
-                    </div>
+                    <div class="section-title">🌅 Morning Session (9:00 - 12:00)</div>
                     <div class="table-responsive">
                         <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Employee Code</th>
-                                    <th>Employee Name</th>
-                                    <th>Department</th>
-                                    <th>Position</th>
-                                    <th>Check In</th>
-                                    <th>Check Out</th>
-                                    <th>Hours</th>
-                                    <th>Status</th>
-                                    <th>Late</th>
-                                    <th>Early</th>
-                                    <th>Reason</th>
-                                </tr>
-                            </thead>
+                            <thead><tr><th>Employee Code</th><th>Employee Name</th><th>Department</th><th>Position</th><th>Check In</th><th>Check Out</th><th>Hours</th><th>Status</th><th>Late</th><th>Early</th><th>Reason</th></tr></thead>
                             <tbody>
                                 <?php if(count($morning_data) > 0): ?>
                                     <?php foreach($morning_data as $row): ?>
@@ -1044,18 +1131,14 @@ if($report_type == 'daily' && $report_data) {
                                     </tr>
                                     <?php endforeach; ?>
                                 <?php else: ?>
-                                    <tr>
-                                        <td colspan="11" class="no-data">No morning session records found</td>
-                                    </tr>
+                                    <tr><td colspan="11" class="no-data">No morning session records found</td></tr>
                                 <?php endif; ?>
                             </tbody>
                         </table>
                     </div>
                     
                     <!-- Afternoon Session Table -->
-                    <div class="section-title">
-                        🌙 Afternoon Session (13:00 - 18:00)
-                    </div>
+                    <div class="section-title">🌙 Afternoon Session (13:00 - 18:00)</div>
                     <div class="table-responsive">
                         <table class="data-table">
                             <thead>
@@ -1077,10 +1160,10 @@ if($report_type == 'daily' && $report_data) {
                                 <?php if(count($afternoon_data) > 0): ?>
                                     <?php foreach($afternoon_data as $row): ?>
                                     <tr>
-                                        <td><?php echo $row['employee_code']; ?></td>
-                                        <td><?php echo $row['name']; ?></td>
-                                        <td><?php echo $row['department']; ?></td>
-                                        <td><?php echo $row['position']; ?></td>
+                                        <td><?php echo htmlspecialchars($row['employee_code']); ?></td>
+                                        <td><?php echo htmlspecialchars($row['name']); ?></td>
+                                        <td><?php echo htmlspecialchars($row['department']); ?></td>
+                                        <td><?php echo htmlspecialchars($row['position']); ?></td>
                                         <td><?php echo $row['check_in_time'] ? date('h:i A', strtotime($row['check_in_time'])) : '-'; ?></td>
                                         <td><?php echo $row['check_out_time'] ? date('h:i A', strtotime($row['check_out_time'])) : '-'; ?></td>
                                         <td><?php echo number_format($row['calculated_working_hours'], 2); ?></td>
@@ -1099,7 +1182,7 @@ if($report_type == 'daily' && $report_data) {
                                     <?php endforeach; ?>
                                 <?php else: ?>
                                     <tr>
-                                        <td colspan="11" class="no-data">No afternoon session records found</td
+                                        <td colspan="11" class="no-data">No afternoon session records found</td>
                                     </tr>
                                 <?php endif; ?>
                             </tbody>
@@ -1162,19 +1245,5 @@ if($report_type == 'daily' && $report_data) {
         </div>
     <?php endif; ?>
 </div>
-
-<script>
-    function exportToPDF() {
-        const element = document.getElementById('reportContent');
-        const opt = {
-            margin: [0.5, 0.5, 0.5, 0.5],
-            filename: 'attendance_report.pdf',
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, letterRendering: true },
-            jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
-        };
-        html2pdf().set(opt).from(element).save();
-    }
-</script>
 </body>
 </html>
