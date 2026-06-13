@@ -26,29 +26,65 @@ if(!$employee) {
     exit();
 }
 
+$department_error = '';
+$position_error = '';
+
+// Validation functions
+function validateDepartment($department) {
+    if(empty($department)) {
+        return "Please select a department.";
+    }
+    return "";
+}
+
+function validatePosition($position) {
+    if(empty($position)) {
+        return "Position is required.";
+    }
+    if(!preg_match("/^[a-zA-Z\s\-]+$/", $position)) {
+        return "Position can only contain letters, spaces, and hyphens.";
+    }
+    if(strlen($position) < 2) {
+        return "Position must be at least 2 characters long.";
+    }
+    if(strlen($position) > 50) {
+        return "Position cannot exceed 50 characters.";
+    }
+    return "";
+}
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $department = mysqli_real_escape_string($conn, $_POST['department']);
-    $position = mysqli_real_escape_string($conn, $_POST['position']);
+    $position = mysqli_real_escape_string($conn, trim($_POST['position']));
     
-    $update_employee = "UPDATE employees 
-                        SET department = '$department', position = '$position' 
-                        WHERE employee_id = '$employee_id'";
+    // Validate fields
+    $department_error = validateDepartment($department);
+    $position_error = validatePosition($position);
     
-    if(mysqli_query($conn, $update_employee)) {
-    $query = "SELECT u.*, e.* FROM users u 
-              JOIN employees e ON u.user_id = e.user_id 
-              WHERE e.employee_id = '$employee_id'";
-    $result = mysqli_query($conn, $query);
-    $employee = mysqli_fetch_assoc($result);
-    
-    // Show JavaScript alert and redirect
-    echo "<script>
-            alert('Employee updated successfully!');
-            window.location.href = 'employee_list.php';
-          </script>";
-    exit();
+    // Check if any validation errors exist
+    if(empty($department_error) && empty($position_error)) {
+        $update_employee = "UPDATE employees 
+                            SET department = '$department', position = '$position' 
+                            WHERE employee_id = '$employee_id'";
+        
+        if(mysqli_query($conn, $update_employee)) {
+            $query = "SELECT u.*, e.* FROM users u 
+                      JOIN employees e ON u.user_id = e.user_id 
+                      WHERE e.employee_id = '$employee_id'";
+            $result = mysqli_query($conn, $query);
+            $employee = mysqli_fetch_assoc($result);
+            
+            // Show JavaScript alert and redirect
+            echo "<script>
+                    alert('Employee updated successfully!');
+                    window.location.href = 'employee_list.php';
+                  </script>";
+            exit();
+        } else {
+            $error = "Error updating employee: " . mysqli_error($conn);
+        }
     } else {
-        $error = "Error updating employee: " . mysqli_error($conn);
+        $error = "Please correct the errors below.";
     }
 }
 ?>
@@ -65,25 +101,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <div class="main-container">
     <div class="card">
         <div class="card-header">
-            <a href="employee_list.php" class="btn-back">
-                <i class="fas fa-arrow-left"></i> Back to Employee List
-            </a>
+            <a href="employee_list.php" class="btn-back">← Back</a>
             <h5>Edit Employee</h5>
+            <div style="width: 70px;"></div>
         </div>
         <div class="card-body">
-            <?php if($error): ?>
+            <?php if($error && empty($department_error) && empty($position_error)): ?>
                 <div class="alert-danger">
                     <?php echo $error; ?>
                 </div>
             <?php endif; ?>
             
-            <?php if($success): ?>
-                <div class="alert-success">
-                    <?php echo $success; ?>
-                </div>
-            <?php endif; ?>
-            
-            <form method="POST" action="">
+            <form method="POST" action="" id="editEmployeeForm">
                 <!-- Profile Picture - Centered -->
                 <div class="profile-section">
                     <div class="profile-picture">
@@ -129,8 +158,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <div class="form-right">
                         <div class="form-group">
                             <label>Department <span class="required">*</span></label>
-                            <select name="department" required>
-                                <option value="">--- Select Department ---</option>
+                            <select name="department" id="department" 
+                                    class="<?php echo $department_error ? 'error-field' : ''; ?>">
+                                <option value="" disabled <?php echo (empty($employee['department'])) ? 'selected' : ''; ?>>--- Select Department ---</option>
                                 <option value="IT Department" <?php echo ($employee['department'] == 'IT Department') ? 'selected' : ''; ?>>IT Department</option>
                                 <option value="HR Department" <?php echo ($employee['department'] == 'HR Department') ? 'selected' : ''; ?>>HR Department</option>
                                 <option value="Finance Department" <?php echo ($employee['department'] == 'Finance Department') ? 'selected' : ''; ?>>Finance Department</option>
@@ -140,11 +170,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                 <option value="Customer Service" <?php echo ($employee['department'] == 'Customer Service') ? 'selected' : ''; ?>>Customer Service</option>
                                 <option value="Administration" <?php echo ($employee['department'] == 'Administration') ? 'selected' : ''; ?>>Administration</option>
                             </select>
+                            <div id="departmentError" class="error-message"><?php echo $department_error; ?></div>
                         </div>
                         
                         <div class="form-group">
                             <label>Position <span class="required">*</span></label>
-                            <input type="text" name="position" value="<?php echo htmlspecialchars($employee['position']); ?>" required>
+                            <input type="text" name="position" id="position" 
+                                   value="<?php echo htmlspecialchars($employee['position']); ?>" 
+                                   placeholder="e.g., Software Engineer"
+                                   class="<?php echo $position_error ? 'error-field' : ''; ?>">
+                            <div id="positionError" class="error-message"><?php echo $position_error; ?></div>
                         </div>
                         
                         <div class="form-group">
@@ -161,12 +196,93 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 
                 <div class="form-actions">
                     <button type="submit" class="btn-submit">
-                        <i class="fas fa-save"></i> Update Employee
+                        Update Employee
                     </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
+<script>
+    let isDepartmentValid = <?php echo empty($department_error) ? 'true' : 'false'; ?>;
+    let isPositionValid = <?php echo empty($position_error) ? 'true' : 'false'; ?>;
+    
+    function validateDepartment() {
+        const value = document.getElementById('department').value;
+        const errorDiv = document.getElementById('departmentError');
+        
+        if (!value) {
+            errorDiv.innerHTML = "Please select a department.";
+            document.getElementById('department').classList.add('error-field');
+            isDepartmentValid = false;
+            return false;
+        } else {
+            errorDiv.innerHTML = "";
+            document.getElementById('department').classList.remove('error-field');
+            isDepartmentValid = true;
+            return true;
+        }
+    }
+    
+    function validatePosition() {
+        const value = document.getElementById('position').value.trim();
+        const errorDiv = document.getElementById('positionError');
+        
+        if (!value) {
+            errorDiv.innerHTML = "Position is required.";
+            document.getElementById('position').classList.add('error-field');
+            isPositionValid = false;
+            return false;
+        } else if (!/^[a-zA-Z\s\-]+$/.test(value)) {
+            errorDiv.innerHTML = "Position can only contain letters, spaces, and hyphens.";
+            document.getElementById('position').classList.add('error-field');
+            isPositionValid = false;
+            return false;
+        } else if (value.length < 2) {
+            errorDiv.innerHTML = "Position must be at least 2 characters.";
+            document.getElementById('position').classList.add('error-field');
+            isPositionValid = false;
+            return false;
+        } else if (value.length > 50) {
+            errorDiv.innerHTML = "Position cannot exceed 50 characters.";
+            document.getElementById('position').classList.add('error-field');
+            isPositionValid = false;
+            return false;
+        } else {
+            errorDiv.innerHTML = "";
+            document.getElementById('position').classList.remove('error-field');
+            isPositionValid = true;
+            return true;
+        }
+    }
+    
+    // Real-time validation
+    document.getElementById('department').addEventListener('change', validateDepartment);
+    document.getElementById('department').addEventListener('blur', validateDepartment);
+    
+    document.getElementById('position').addEventListener('input', validatePosition);
+    document.getElementById('position').addEventListener('blur', validatePosition);
+    
+    // Form submission validation
+    document.getElementById('editEmployeeForm').addEventListener('submit', function(e) {
+        let isValid = true;
+        let errorMessages = [];
+        
+        if (!validateDepartment()) {
+            isValid = false;
+            errorMessages.push("- Department not selected");
+        }
+        if (!validatePosition()) {
+            isValid = false;
+            errorMessages.push("- Position is invalid or missing");
+        }
+        
+        if (!isValid) {
+            e.preventDefault();
+            alert("Please correct the following errors:\n" + errorMessages.join("\n"));
+        }
+    });
+</script>
 </body>
 </html>
