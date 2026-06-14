@@ -232,7 +232,7 @@ $show_back_button = ($current_page != 'dashboard_admin.php');
                         <i class="fas fa-user-shield"></i>
                     </div>
                     <div class="user-menu">
-                        <a href="profile.php"><i class="fas fa-user-circle"></i> My Profile</a>
+                        <a href="profile_admin.php"><i class="fas fa-user-circle"></i> My Profile</a>
                         <a href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
                     </div>
                 </div>
