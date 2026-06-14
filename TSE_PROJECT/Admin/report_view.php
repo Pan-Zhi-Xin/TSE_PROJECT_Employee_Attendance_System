@@ -82,9 +82,12 @@ function getEmployeeNameForDisplayPDF($conn, $employee_id) {
     $query = "SELECT u.name, e.employee_code FROM employees e JOIN users u ON e.user_id = u.user_id WHERE e.employee_id = '$employee_id'";
     $result = mysqli_query($conn, $query);
     if($row = mysqli_fetch_assoc($result)) {
-        return $row['employee_code'] . ' - ' . $row['name'];
+        return [
+            'display' => $row['employee_code'] . ' - ' . $row['name'],
+            'name' => $row['name']
+        ];
     }
-    return 'Selected Employee';
+    return ['display' => 'Selected Employee', 'name' => 'Selected_Employee'];
 }
 // ============ PDF EXPORT ============
 if(isset($_GET['export_pdf']) && $_GET['export_pdf'] == '1') {
@@ -311,17 +314,73 @@ if(isset($_GET['export_pdf']) && $_GET['export_pdf'] == '1') {
         }
         
         // SUMMARY
-        $present = $late = $absent = $half_day = $holiday = $total_hours = 0;
+        $employee_status = [];
+
         foreach($export_data as $row) {
+            $emp_id = $row['employee_id'];
             $status = $row['display_status']['status'];
-            if($status == 'present') $present++;
-            elseif($status == 'late') $late++;
-            elseif($status == 'absent') $absent++;
-            elseif($status == 'half_day') $half_day++;
-            elseif($status == 'holiday') $holiday++;
-            $total_hours += $row['calculated_working_hours'];
+            $hours = $row['calculated_working_hours'];
+            
+            // For each employee, we need to determine their overall status for the day
+            if (!isset($employee_status[$emp_id])) {
+                $employee_status[$emp_id] = [
+                    'status' => $status,
+                    'hours' => 0,
+                    'has_morning' => false,
+                    'has_afternoon' => false,
+                    'morning_status' => '',
+                    'afternoon_status' => ''
+                ];
+            }
+            
+            // Track session status
+            if ($row['session'] == 'morning') {
+                $employee_status[$emp_id]['has_morning'] = true;
+                $employee_status[$emp_id]['morning_status'] = $status;
+            } else {
+                $employee_status[$emp_id]['has_afternoon'] = true;
+                $employee_status[$emp_id]['afternoon_status'] = $status;
+            }
+            
+            $employee_status[$emp_id]['hours'] += $hours;
+            $total_hours += $hours;
         }
-        
+
+        // Determine overall status for each employee
+        foreach ($employee_status as $emp_id => $data) {
+            // If both sessions exist, combine logic
+            if ($data['has_morning'] && $data['has_afternoon']) {
+                // If both present or both late -> present/late
+                // If one absent and one present -> half day
+                if (($data['morning_status'] == 'present' || $data['morning_status'] == 'late') && 
+                    ($data['afternoon_status'] == 'present' || $data['afternoon_status'] == 'late')) {
+                    $overall = ($data['morning_status'] == 'late' || $data['afternoon_status'] == 'late') ? 'late' : 'present';
+                } elseif (($data['morning_status'] == 'present' || $data['morning_status'] == 'late') && 
+                        $data['afternoon_status'] == 'absent') {
+                    $overall = 'half_day';
+                } elseif ($data['morning_status'] == 'absent' && 
+                        ($data['afternoon_status'] == 'present' || $data['afternoon_status'] == 'late')) {
+                    $overall = 'half_day';
+                } else {
+                    $overall = 'absent';
+                }
+            } elseif ($data['has_morning'] && !$data['has_afternoon']) {
+                // Only morning session
+                $overall = $data['morning_status'] == 'absent' ? 'half_day' : 'half_day';
+            } elseif (!$data['has_morning'] && $data['has_afternoon']) {
+                // Only afternoon session
+                $overall = $data['afternoon_status'] == 'absent' ? 'half_day' : 'half_day';
+            } else {
+                $overall = 'absent';
+            }
+            
+            // Count overall status
+            if ($overall == 'present') $present++;
+            elseif ($overall == 'late') $late++;
+            elseif ($overall == 'half_day') $half_day++;
+            elseif ($overall == 'absent') $absent++;
+        }
+
         $summaryData = array(
             array('label' => 'Present', 'value' => $present),
             array('label' => 'Late', 'value' => $late),
@@ -412,7 +471,6 @@ if(isset($_GET['export_excel']) && $_GET['export_excel'] == '1') {
     $morning_end = '12:00:00';
     $afternoon_start = '13:00:00';
     $afternoon_end = '18:00:00';
-
     
     // Get export parameters
     $export_report_type = $_GET['report_type'] ?? '';
@@ -442,147 +500,75 @@ if(isset($_GET['export_excel']) && $_GET['export_excel'] == '1') {
         $export_data[] = $row;
     }
     
-    // Generate filename
+    // Generate filename with employee name
     if($export_report_type == 'daily') {
-        $filename = "Attendance_Report_Daily_" . date('d-m-Y', strtotime($export_start_date));
+        $date_display = date('d-m-Y', strtotime($export_start_date));
+        $employee_data = ($export_selected_employee != 'all') ? getEmployeeNameForDisplayPDF($conn, $export_selected_employee) : ['display' => 'All Employees', 'name' => 'All_Employees'];
+        $employee_display_name = $employee_data['display'];
+        $clean_employee_name = preg_replace('/[^A-Za-z0-9]/', '_', $employee_data['name']);
+        $filename = "Daily_Attendance_Report_{$clean_employee_name}_{$date_display}";
+        $report_title = "Daily Report - " . $date_display . " (" . $employee_display_name . ")";
     } elseif($export_report_type == 'monthly') {
-        $filename = "Attendance_Report_Monthly_" . date('F_Y', strtotime($export_start_date));
+        $month_year = date('F Y', strtotime($export_start_date));
+        $employee_data = ($export_selected_employee != 'all') ? getEmployeeNameForDisplayPDF($conn, $export_selected_employee) : ['display' => 'All Employees', 'name' => 'All_Employees'];
+        $employee_display_name = $employee_data['display'];
+        $clean_employee_name = preg_replace('/[^A-Za-z0-9]/', '_', $employee_data['name']);
+        $filename = "Monthly_Attendance_Report_{$clean_employee_name}_{$month_year}";
+        $report_title = "Monthly Report - " . $month_year . " (" . $employee_display_name . ")";
     } else {
-        $filename = "Attendance_Report_Custom_" . date('d-m-Y', strtotime($export_start_date)) . "_to_" . date('d-m-Y', strtotime($export_end_date));
+        $start_display = date('d-m-Y', strtotime($export_start_date));
+        $end_display = date('d-m-Y', strtotime($export_end_date));
+        $employee_data = ($export_selected_employee != 'all') ? getEmployeeNameForDisplayPDF($conn, $export_selected_employee) : ['display' => 'All Employees', 'name' => 'All_Employees'];
+        $employee_display_name = $employee_data['display'];
+        $clean_employee_name = preg_replace('/[^A-Za-z0-9]/', '_', $employee_data['name']);
+        $filename = "Custom_Attendance_Report_{$clean_employee_name}_{$start_display}_to_{$end_display}";
+        $report_title = "Custom Report - " . $start_display . " - " . $end_display . " (" . $employee_display_name . ")";
     }
     
     // Set headers for Excel download
     header("Content-Type: application/vnd.ms-excel");
-    header("Content-Disposition: attachment; filename=$filename.xls");
+    header("Content-Disposition: attachment; filename=" . preg_replace('/[^A-Za-z0-9_\-]/', '_', $filename) . ".xls");
     header("Pragma: no-cache");
     header("Expires: 0");
     
-    // Start HTML table format for better Excel display
-    echo '<html>';
-    echo '<head>';
-    echo '<meta charset="UTF-8">';
-    echo '<title>Attendance Report</title>';
-    echo '<style>
-        body { font-family: Arial, sans-serif; }
-        .report-table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
-        .report-table th, .report-table td { border: 1px solid #000000; padding: 8px; text-align: left; vertical-align: top; }
-        .report-table th { background-color: #ffffff; font-weight: bold; }
-        .section-title { font-size: 14pt; font-weight: bold; margin: 20px 0 10px 0; }
-        .summary-table { border-collapse: collapse; width: 50%; margin-top: 20px; }
-        .summary-table th, .summary-table td { border: 1px solid #000000; padding: 6px; }
-        .summary-table th { font-weight: bold; }
-    </style>';
-    echo '</head>';
-    echo '<body>';
-    
-    // Generate filename
-    if($export_report_type == 'daily') {
-        $filename = "Attendance_Report_Daily_" . date('d-m-Y', strtotime($export_start_date));
-    } elseif($export_report_type == 'monthly') {
-        $filename = "Attendance_Report_Monthly_" . date('F_Y', strtotime($export_start_date));
+    // Get employee display name for header
+    if($export_selected_employee != 'all') {
+        $employee_data = getEmployeeNameForDisplayPDF($conn, $export_selected_employee);
+        $employee_display = $employee_data['display'];
     } else {
-        $filename = "Attendance_Report_Custom_" . date('d-m-Y', strtotime($export_start_date)) . "_to_" . date('d-m-Y', strtotime($export_end_date));
-    }
-
-    // Set headers for Excel download
-    header("Content-Type: application/vnd.ms-excel");
-    header("Content-Disposition: attachment; filename=$filename.xls");
-    header("Pragma: no-cache");
-    header("Expires: 0");
-
-    // Start HTML table format for better Excel display
+        $employee_display = 'All Employees';
+    }    
+    // Start HTML table format for Excel
     echo '<html>';
     echo '<head>';
     echo '<meta charset="UTF-8">';
-    echo '<title>Attendance Report</title>';
+    echo '<title>' . $report_title . '</title>';
     echo '<style>
         body { font-family: Arial, sans-serif; }
         .report-table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
-        .report-table th, .report-table td { border: 1px solid #000000; padding: 8px; text-align: left; vertical-align: top; }
-        .report-table th { background-color: #ffffff; font-weight: bold; text-align: center; }
+        .report-table th, .report-table td { border: 1px solid #000000; padding: 8px; }
+        .report-table th { background-color: #e0e0e0; font-weight: bold; text-align: center; }
         .report-table td { text-align: left; }
-        .section-title { font-size: 14pt; font-weight: bold; margin: 20px 0 10px 0; text-align: center; }
-        .summary-table { border-collapse: collapse; width: 50%; margin: 20px auto 0 auto; }
+        .section-title { font-size: 14pt; font-weight: bold; margin: 20px 0 10px 0; text-align: center; background-color: #4472C4; color: #000000; padding: 5px; }
+        .section-title-summary { font-size: 14pt; font-weight: bold; margin: 20px 0 10px 0; text-align: left; background-color: #4472C4; color: #000000; padding: 5px; }
+        .summary-table { border-collapse: collapse; width: 60%; margin: 20px auto 0 auto; }
         .summary-table th, .summary-table td { border: 1px solid #000000; padding: 6px; }
-        .summary-table th { font-weight: bold; background-color: #ffffff; text-align: center; }
-        .summary-table td { text-align: left; }
+        .summary-table th { font-weight: bold; background-color: #e0e0e0; text-align: center; }
         .header-title { text-align: center; margin-bottom: 20px; }
-        .header-title h2 { margin-bottom: 5px; }
-        .header-title p { margin: 2px 0; }
-        .separator { margin: 30px 0 20px 0; border-top: 2px solid #000000; }
+        .date-separator-row td { background-color: #f5f5f5; font-weight: bold; text-align: center; }
     </style>';
     echo '</head>';
     echo '<body>';
-
-if($export_report_type == 'daily') {
-    $date_display = date('d-m-Y', strtotime($export_start_date));
-    $employee_name = ($export_selected_employee != 'all') ? getEmployeeNameById($conn, $export_selected_employee) : 'All_Employees';
-    $filename = "Attendance_Report_Daily_{$employee_name}_{$date_display}";
-} elseif($export_report_type == 'monthly') {
-    $month_year = date('F_Y', strtotime($export_start_date));
-    $employee_name = ($export_selected_employee != 'all') ? getEmployeeNameById($conn, $export_selected_employee) : 'All_Employees';
-    $filename = "Attendance_Report_Monthly_{$employee_name}_{$month_year}";
-} else {
-    $start_display = date('d-m-Y', strtotime($export_start_date));
-    $end_display = date('d-m-Y', strtotime($export_end_date));
-    $employee_name = ($export_selected_employee != 'all') ? getEmployeeNameById($conn, $export_selected_employee) : 'All_Employees';
-    $filename = "Attendance_Report_Custom_{$employee_name}_{$start_display}_to_{$end_display}";
-}
-
-// Add helper function to get employee name
-function getEmployeeNameById($conn, $employee_id) {
-    $query = "SELECT u.name FROM employees e JOIN users u ON e.user_id = u.user_id WHERE e.employee_id = '$employee_id'";
-    $result = mysqli_query($conn, $query);
-    if($row = mysqli_fetch_assoc($result)) {
-        return preg_replace('/[^A-Za-z0-9]/', '_', $row['name']);
-    }
-    return 'Selected_Employee';
-}
-
-// Set headers for Excel download
-header("Content-Type: application/vnd.ms-excel");
-header("Content-Disposition: attachment; filename=$filename.xls");
-header("Pragma: no-cache");
-header("Expires: 0");
-
-// Get employee display name for header
-$employee_display = ($export_selected_employee != 'all') ? getEmployeeNameForDisplay($conn, $export_selected_employee) : 'All Employees';
-
-function getEmployeeNameForDisplay($conn, $employee_id) {
-    $query = "SELECT u.name, e.employee_code FROM employees e JOIN users u ON e.user_id = u.user_id WHERE e.employee_id = '$employee_id'";
-    $result = mysqli_query($conn, $query);
-    if($row = mysqli_fetch_assoc($result)) {
-        return $row['employee_code'] . ' - ' . $row['name'];
-    }
-    return 'Selected Employee';
-}
-
-// Start HTML table format for better Excel display
-echo '<html>';
-echo '<head>';
-echo '<meta charset="UTF-8">';
-echo '<title>Attendance Report - ' . strtoupper($export_report_type) . '</title>';
-echo '<style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    .report-table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
-    .report-table th, .report-table td { border: 1px solid #000000; padding: 8px; }
-    .report-table th { background-color: #ffffff; font-weight: bold; text-align: center; }
-    .report-table td { text-align: left; }
-    .section-title { font-size: 14pt; font-weight: bold; margin: 20px 0 10px 0; text-align: center; }
-    .summary-table { border-collapse: collapse; width: 50%; margin: 10px auto 0 auto; }
-    .summary-table th, .summary-table td { border: 1px solid #000000; padding: 6px; }
-    .summary-table th { font-weight: bold; background-color: #ffffff; text-align: center; }
-    .summary-table td { text-align: left; }
-    .header-title { text-align: center; margin-bottom: 20px; }
-    .header-title h2 { margin-bottom: 5px; }
-    .header-title p { margin: 2px 0; }
-    .separator { margin: 30px 0 20px 0; border-top: 2px solid #000000; }
-    .summary-wrapper { text-align: center; margin-top: 20px; }
-</style>';
-echo '</head>';
-echo '<body>';
-
-if($export_report_type == 'daily') {
+    
+    // Report Header
+    echo '<div class="header-title">';
+    echo '<h2>' . $report_title . '</h2>';
+    echo '<p><strong>Generated On:</strong> ' . date('d-m-Y H:i:s') . '</p>';
+    echo '</div>';
+    
+    echo '<br/>';
+    
+    if($export_report_type == 'daily') {
         $morning_export = [];
         $afternoon_export = [];
         foreach($export_data as $row) {
@@ -593,19 +579,8 @@ if($export_report_type == 'daily') {
             }
         }
         
-        // Report Header with ALL information
-        echo '<div class="header-title">';
-        echo '<h2 style="text-align: center;">ATTENDANCE REPORT</h2>';
-        echo '<p style="text-align: center; margin: 5px 0;"><strong>Report Type:</strong> Daily Report</p>';
-        echo '<p style="text-align: center; margin: 2px 0;"><strong>Date:</strong> ' . date('d-m-Y', strtotime($export_start_date)) . '</p>';
-        echo '<p style="text-align: center; margin: 2px 0;"><strong>Employee:</strong> ' . $employee_display . '</p>';
-        echo '<p style="text-align: center; margin: 2px 0;"><strong>Generated On:</strong> ' . date('d-m-Y H:i:s') . '</p>';
-        echo '</div>';
-        
-        echo '<br/>';
-
         // MORNING SESSION TABLE
-        echo '<div class="section-title">MORNING SESSION (9:00 - 12:00)</div>';        
+        echo '<div class="section-title">MORNING SESSION (9:00 - 12:00)</div>';
         echo '<table class="report-table">';
         echo '<thead>';
         echo '<tr>';
@@ -650,10 +625,10 @@ if($export_report_type == 'daily') {
         echo '<br/><br/>';
         
         // AFTERNOON SESSION TABLE
-        echo '<div class="section-title">AFTERNOON SESSION (13:00 - 18:00)</div>';        
+        echo '<div class="section-title">AFTERNOON SESSION (13:00 - 18:00)</div>';
         echo '<table class="report-table">';
         echo '<thead>';
-        echo '<tr>';
+        echo '</tr>';
         echo '<th>Employee Code</th>';
         echo '<th>Employee Name</th>';
         echo '<th>Department</th>';
@@ -692,55 +667,56 @@ if($export_report_type == 'daily') {
         
         echo '</tbody>';
         echo '</table>';
+        echo '<br/>';
+        echo '<br/>';
         
-        // SUMMARY TABLE - Directly after afternoon section (no separator)
-        $present = $late = $absent = $half_day = $holiday = $total_hours = 0;
+        // Employee Summary Table for Daily
+        $employee_daily_status = [];
         foreach($export_data as $row) {
-            $status = $row['display_status']['status'];
-            if($status == 'present') $present++;
-            elseif($status == 'late') $late++;
-            elseif($status == 'absent') $absent++;
-            elseif($status == 'half_day') $half_day++;
-            elseif($status == 'holiday') $holiday++;
-            $total_hours += $row['calculated_working_hours'];
+            $emp_id = $row['employee_id'];
+            if (!isset($employee_daily_status[$emp_id])) {
+                $employee_daily_status[$emp_id] = [
+                    'employee_code' => $row['employee_code'],
+                    'employee_name' => $row['name'],
+                    'total_hours' => 0,
+                    'total_late' => 0,
+                    'total_early' => 0
+                ];
+            }
+            $employee_daily_status[$emp_id]['total_hours'] += $row['calculated_working_hours'];
+            $employee_daily_status[$emp_id]['total_late'] += $row['calculated_late_minutes'];
+            $employee_daily_status[$emp_id]['total_early'] += $row['calculated_early_minutes'];
         }
         
-        // Summary header and table
-        echo '<br></br><table class="summary-table">';
-        echo '<tr><th style="text-align: center;">Metric</th><th style="text-align: center;">Count</th></tr>';
-        echo '<tr><td style="text-align: left;">Present</td><td style="text-align: center;">' . $present . '</td>
-        </tr>';
-        echo '<tr><td style="text-align: left;">Late</td><td style="text-align: center;">' . $late . '</td>
-        </tr>';
-        echo '<tr><td style="text-align: left;">Absent</td><td style="text-align: center;">' . $absent . '</td>
-        </tr>';
-        echo '<tr><td style="text-align: left;">Half Day</td><td style="text-align: center;">' . $half_day . '</td>
-        </tr>';
-        echo '<tr><td style="text-align: left;">Holiday</td><td style="text-align: center;">' . $holiday . '</td>
-        </tr>';
-        echo '<tr><td style="text-align: left;"><strong>Total Working Hours</strong></td><td style="text-align: center;"><strong>' . number_format($total_hours, 1) . '</strong></td>
-        </tr>';
+        echo '<div class="section-title-summary">EMPLOYEE SUMMARY</div>';
+        echo '<table class="summary-table">';
+        echo '<thead>';
+        echo '<tr>';
+        echo '<th>Employee Code</th>';
+        echo '<th>Employee Name</th>';
+        echo '<th>Total Hours</th>';
+        echo '<th>Late (min)</th>';
+        echo '<th>Early (min)</th>';
+        echo '</tr>';
+        echo '</thead>';
+        echo '<tbody>';
+        foreach($employee_daily_status as $data) {
+            echo '<tr>';
+            echo '<td>' . htmlspecialchars($data['employee_code']) . '</td>';
+            echo '<td>' . htmlspecialchars($data['employee_name']) . '</td>';
+            echo '<td style="text-align: center;">' . number_format($data['total_hours'], 2) . '</td>';
+            echo '<td style="text-align: center;">' . $data['total_late'] . '</td>';
+            echo '<td style="text-align: center;">' . $data['total_early'] . '</td>';
+            echo '</tr>';
+        }
+        echo '</tbody>';
         echo '</table>';
         
     } else {
-        // MONTHLY/CUSTOM REPORT
-        echo '<div class="header-title">';
-        echo '<h2 style="text-align: center;">ATTENDANCE REPORT</h2>';
-        if($export_report_type == 'monthly') {
-            echo '<p style="text-align: center;"><strong>Report Type:</strong> Monthly Report</p>';
-            echo '<p style="text-align: center;"><strong>Period:</strong> ' . date('F Y', strtotime($export_start_date)) . '</p>';
-        } else {
-            echo '<p style="text-align: center;"><strong>Report Type:</strong> Custom Date Range Report</p>';
-            echo '<p style="text-align: center;"><strong>Period:</strong> ' . date('d-m-Y', strtotime($export_start_date)) . ' to ' . date('d-m-Y', strtotime($export_end_date)) . '</p>';
-        }
-        echo '<p style="text-align: center;"><strong>Employee:</strong> ' . $employee_display . '</p>';
-        echo '<p style="text-align: center;"><strong>Generated On:</strong> ' . date('d-m-Y H:i:s') . '</p>';
-        echo '</div>';
-        echo '<br/>';
-        
+        // MONTHLY/CUSTOM REPORT with date separators
         echo '<table class="report-table">';
         echo '<thead>';
-        echo '<tr>';
+        echo '</tr>';
         echo '<th>Date</th>';
         echo '<th>Employee Code</th>';
         echo '<th>Employee Name</th>';
@@ -758,75 +734,109 @@ if($export_report_type == 'daily') {
         echo '</thead>';
         echo '<tbody>';
         
-        if(count($export_data) > 0) {
-            foreach($export_data as $row) {
-                echo '<tr>';
-                echo '<td style="text-align: center;">' . date('d-m-Y', strtotime($row['record_date'])) . '</td>';
-                echo '<td>' . htmlspecialchars($row['employee_code']) . '</td>';
-                echo '<td>' . htmlspecialchars($row['name']) . '</td>';
-                echo '<td>' . htmlspecialchars($row['department']) . '</td>';
-                echo '<td>' . htmlspecialchars($row['position']) . '</td>';
-                echo '<td style="text-align: center;">' . (($row['session'] == 'morning') ? 'Morning' : 'Afternoon') . '</td>';
-                echo '<td style="text-align: center;">' . ($row['check_in_time'] ? date('h:i A', strtotime($row['check_in_time'])) : '-') . '</td>';
-                echo '<td style="text-align: center;">' . ($row['check_out_time'] ? date('h:i A', strtotime($row['check_out_time'])) : '-') . '</td>';
-                echo '<td style="text-align: center;">' . number_format($row['calculated_working_hours'], 2) . '</td>';
-                echo '<td style="text-align: center;">' . $row['display_status']['text'] . '</td>';
-                echo '<td style="text-align: center;">' . ($row['calculated_late_minutes'] > 0 ? $row['calculated_late_minutes'] : '0') . '</td>';
-                echo '<td style="text-align: center;">' . ($row['calculated_early_minutes'] > 0 ? $row['calculated_early_minutes'] : '0') . '</td>';
-                echo '<td>' . nl2br(htmlspecialchars(substr($row['reason'] ?? '-', 0, 200))) . '</td>';
+        $current_date = '';
+        foreach($export_data as $row) {
+            $row_date = date('d-m-Y', strtotime($row['record_date']));
+            // Add separator row when date changes
+            if($current_date != '' && $current_date != $row_date) {
+                echo '<tr class="date-separator-row">';
+                echo '<td colspan="13" style="background-color: #f5f5f5; font-weight: bold; text-align: center;">';
+                echo '<strong>' . $row_date . '</strong>';
+                echo '</td>';
                 echo '</tr>';
             }
-        } else {
-            echo '<tr><td colspan="13" style="text-align: center;">No records found</td>
-            </tr>';
+            $current_date = $row_date;
+            
+            echo '<tr>';
+            echo '<td style="text-align: center;">' . $row_date . '</td>';
+            echo '<td>' . htmlspecialchars($row['employee_code']) . '</td>';
+            echo '<td>' . htmlspecialchars($row['name']) . '</td>';
+            echo '<td>' . htmlspecialchars($row['department']) . '</td>';
+            echo '<td>' . htmlspecialchars($row['position']) . '</td>';
+            echo '<td style="text-align: center;">' . (($row['session'] == 'morning') ? 'Morning' : 'Afternoon') . '</td>';
+            echo '<td style="text-align: center;">' . ($row['check_in_time'] ? date('h:i A', strtotime($row['check_in_time'])) : '-') . '</td>';
+            echo '<td style="text-align: center;">' . ($row['check_out_time'] ? date('h:i A', strtotime($row['check_out_time'])) : '-') . '</td>';
+            echo '<td style="text-align: center;">' . number_format($row['calculated_working_hours'], 2) . '</td>';
+            echo '<td style="text-align: center;">' . $row['display_status']['text'] . '</td>';
+            echo '<td style="text-align: center;">' . ($row['calculated_late_minutes'] > 0 ? $row['calculated_late_minutes'] : '0') . '</td>';
+            echo '<td style="text-align: center;">' . ($row['calculated_early_minutes'] > 0 ? $row['calculated_early_minutes'] : '0') . '</td>';
+            echo '<td>' . nl2br(htmlspecialchars(substr($row['reason'] ?? '-', 0, 200))) . '</td>';
+            echo '</tr>';
         }
         
         echo '</tbody>';
         echo '</table>';
+        echo '<br/>';
+        echo '<br/>';
         
-        // SUMMARY TABLE - Directly after main table (no separator)
-        $present = $late = $absent = $half_day = $holiday = $total_hours = $total_late = $total_early = 0;
-
-        if(!empty($export_data)) {
-            foreach($export_data as $row) {
-                $status = $row['display_status']['status'] ?? '';
-                if($status == 'present') $present++;
-                elseif($status == 'late') $late++;
-                elseif($status == 'absent') $absent++;
-                elseif($status == 'half_day') $half_day++;
-                elseif($status == 'holiday') $holiday++;
-                $total_hours += $row['calculated_working_hours'] ?? 0;
-                $total_late += $row['calculated_late_minutes'] ?? 0;
-                $total_early += $row['calculated_early_minutes'] ?? 0;
+        // Employee Summary Table for Monthly/Custom
+        $monthly_employee_summary = [];
+        foreach($export_data as $row) {
+            $emp_id = $row['employee_id'];
+            if (!isset($monthly_employee_summary[$emp_id])) {
+                $monthly_employee_summary[$emp_id] = [
+                    'employee_code' => $row['employee_code'],
+                    'employee_name' => $row['name'],
+                    'total_hours' => 0,
+                    'total_late' => 0,
+                    'total_early' => 0,
+                    'present_count' => 0,
+                    'late_count' => 0,
+                    'absent_count' => 0,
+                    'half_day_count' => 0,
+                    'holiday_count' => 0
+                ];
             }
+            
+            $status = $row['display_status']['status'];
+            if($status == 'present') $monthly_employee_summary[$emp_id]['present_count']++;
+            elseif($status == 'late') $monthly_employee_summary[$emp_id]['late_count']++;
+            elseif($status == 'absent') $monthly_employee_summary[$emp_id]['absent_count']++;
+            elseif($status == 'half_day') $monthly_employee_summary[$emp_id]['half_day_count']++;
+            elseif($status == 'holiday') $monthly_employee_summary[$emp_id]['holiday_count']++;
+            
+            $monthly_employee_summary[$emp_id]['total_hours'] += $row['calculated_working_hours'];
+            $monthly_employee_summary[$emp_id]['total_late'] += $row['calculated_late_minutes'];
+            $monthly_employee_summary[$emp_id]['total_early'] += $row['calculated_early_minutes'];
         }
         
-        // Summary header and table
-        echo '<br></br><table class="summary-table">';
-        echo '<tr><th style="text-align: center;">Metric</th><th style="text-align: center;">Value</th>
-        </tr>';
-        echo '<tr><td style="text-align: left;">Present</td><td style="text-align: center;">' . $present . '</td>
-        </tr>';
-        echo '<tr><td style="text-align: left;">Late</td><td style="text-align: center;">' . $late . '</td>
-        </tr>';
-        echo '<tr><td style="text-align: left;">Absent</td><td style="text-align: center;">' . $absent . '</td>
-        </tr>';
-        echo '<tr><td style="text-align: left;">Half Day</td><td style="text-align: center;">' . $half_day . '</td>
-        </tr>';
-        echo '<tr><td style="text-align: left;">Holiday</td><td style="text-align: center;">' . $holiday . '</td>
-        </tr>';
-        echo '<tr><td style="text-align: left;">Total Late Minutes</td><td style="text-align: center;">' . $total_late . '</td>
-        </tr>';
-        echo '<tr><td style="text-align: left;">Total Early Minutes</td><td style="text-align: center;">' . $total_early . '</td>
-        </tr>';
-        echo '<tr><td style="text-align: left;"><strong>Total Working Hours</strong></td><td style="text-align: center;"><strong>' . number_format($total_hours, 1) . '</strong></td>
-        </tr>';
+        echo '<div class="section-title">EMPLOYEE SUMMARY</div>';
+        echo '<table class="summary-table">';
+        echo '<thead>';
+        echo '<tr>';
+        echo '<th>Employee Code</th>';
+        echo '<th>Employee Name</th>';
+        echo '<th>Present</th>';
+        echo '<th>Late</th>';
+        echo '<th>Absent</th>';
+        echo '<th>Half Day</th>';
+        echo '<th>Holiday</th>';
+        echo '<th>Total Hours</th>';
+        echo '<th>Late (min)</th>';
+        echo '<th>Early (min)</th>';
+        echo '</tr>';
+        echo '</thead>';
+        echo '<tbody>';
+        foreach($monthly_employee_summary as $data) {
+            echo '<tr>';
+            echo '<td>' . htmlspecialchars($data['employee_code']) . '</td>';
+            echo '<td>' . htmlspecialchars($data['employee_name']) . '</td>';
+            echo '<td style="text-align: center;">' . $data['present_count'] . '</td>';
+            echo '<td style="text-align: center;">' . $data['late_count'] . '</td>';
+            echo '<td style="text-align: center;">' . $data['absent_count'] . '</td>';
+            echo '<td style="text-align: center;">' . $data['half_day_count'] . '</td>';
+            echo '<td style="text-align: center;">' . $data['holiday_count'] . '</td>';
+            echo '<td style="text-align: center;">' . number_format($data['total_hours'], 2) . '</td>';
+            echo '<td style="text-align: center;">' . $data['total_late'] . '</td>';
+            echo '<td style="text-align: center;">' . $data['total_early'] . '</td>';
+            echo '</tr>';
+        }
+        echo '</tbody>';
         echo '</table>';
     }
-
+    
     echo '</body>';
     echo '</html>';
-    
     exit();
 }
 // ============ NORMAL PAGE LOAD ============
@@ -1044,101 +1054,185 @@ if($report_type == 'daily' && $report_data) {
 </head>
 <body>
 <div class="main-container">
-    <div class="header-actions">
-        <a href="report.php" class="btn-back">← Back to Report Form</a>
-        <div class="action-buttons">
-            <?php if($report_data !== null && count($report_data) > 0): ?>
-                <?php
-                $export_params = array(
-                    'export_excel' => 1,
-                    'report_type' => $report_type,
-                    'start_date' => $start_date,
-                    'end_date' => $end_date,
-                    'employee_id' => $selected_employee_id
-                );
-                $pdf_params = array(
-                    'export_pdf' => 1,
-                    'report_type' => $report_type,
-                    'start_date' => $start_date,
-                    'end_date' => $end_date,
-                    'employee_id' => $selected_employee_id
-                );
-                $export_url = '?' . http_build_query($export_params);
-                $pdf_url = '?' . http_build_query($pdf_params);
-                ?>
-                <a href="<?php echo $export_url; ?>" class="btn-excel">Export to Excel</a>
-                <a href="<?php echo $pdf_url; ?>" class="btn-pdf">Export to PDF</a>
-            <?php endif; ?>
-
-        </div>
-    </div>
-    
-    <?php if($no_data_message): ?>
-        <div class="card"><div class="card-body"><div class="error-message">⚠️ <?php echo $no_data_message; ?></div></div></div>
-    <?php elseif($report_data !== null && count($report_data) > 0): ?>
-        <div class="card" id="reportContent">
-            <div class="card-header">
-                <?php 
-                if($report_type == 'daily') {
-                    echo 'Daily Report - ' . date('d-m-Y', strtotime($start_date));
-                } elseif($report_type == 'monthly') {
-                    echo 'Monthly Report - ' . date('F Y', strtotime("$selected_year-$selected_month-01"));
-                } else {
-                    echo 'Custom Report - ' . date('d-m-Y', strtotime($start_date)) . ' to ' . date('d-m-Y', strtotime($end_date));
-                }
-                echo ($selected_employee != 'all') ? ' (Selected Employee)' : ' (All Employees)';
-                ?>
-            </div>
-            <div class="card-body">
-                <div class="summary-box">  
-                    <div class="summary-item"><h4><?php echo $summary['present']; ?></h4><p>Present</p></div>
-                    <div class="summary-item"><h4><?php echo $summary['late']; ?></h4><p>Late</p></div>
-                    <div class="summary-item"><h4><?php echo $summary['half_day']; ?></h4><p>Half Day</p></div>
-                    <div class="summary-item"><h4><?php echo $summary['holiday']; ?></h4><p>Holiday</p></div>
-                    <div class="summary-item"><h4><?php echo $summary['absent']; ?></h4><p>Absent</p></div>
-                    <div class="summary-item"><h4><?php echo number_format($summary['total_hours'], 1); ?></h4><p>Total Hours</p></div>
-                    <div class="summary-item"><h4><?php echo $summary['total_late_minutes']; ?></h4><p>Late Mins</p></div>
+    <div class="card">
+        <div class="card-header">
+            <div class="header-actions">
+                <a href="report.php" class="btn-back">← Back to Report Form</a>
+                <div class="report-title">
+                    <?php 
+                    if($report_type == 'daily') {
+                        echo 'Daily Report - ' . date('d-m-Y', strtotime($start_date));
+                    } elseif($report_type == 'monthly') {
+                        echo 'Monthly Report - ' . date('F Y', strtotime("$selected_year-$selected_month-01"));
+                    } else {
+                        echo 'Custom Report - ' . date('d-m-Y', strtotime($start_date)) . ' to ' . date('d-m-Y', strtotime($end_date));
+                    }
+                    echo ($selected_employee != 'all') ? ' (Selected Employee)' : ' (All Employees)';
+                    ?>
                 </div>
-                
+                <div class="action-buttons">
+                    <?php if($report_data !== null && count($report_data) > 0): ?>
+                        <?php
+                        $export_params = array(
+                            'export_excel' => 1,
+                            'report_type' => $report_type,
+                            'start_date' => $start_date,
+                            'end_date' => $end_date,
+                            'employee_id' => $selected_employee_id
+                        );
+                        $pdf_params = array(
+                            'export_pdf' => 1,
+                            'report_type' => $report_type,
+                            'start_date' => $start_date,
+                            'end_date' => $end_date,
+                            'employee_id' => $selected_employee_id
+                        );
+                        $export_url = '?' . http_build_query($export_params);
+                        $pdf_url = '?' . http_build_query($pdf_params);
+                        ?>
+                        <a href="<?php echo $export_url; ?>" class="btn-excel"><img src="../excel_logo.png" alt="PDF Logo">Excel</a>
+                        <a href="<?php echo $pdf_url; ?>" class="btn-pdf"><img src="../pdf_logo.png" alt="PDF Logo">PDF</a>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        
+        <?php if($no_data_message): ?>
+            <div class="card-body">
+                <div class="error-message">⚠️ <?php echo $no_data_message; ?></div>
+            </div>
+        <?php elseif($report_data !== null && count($report_data) > 0): ?>
+            <div class="card-body" id="reportContent">
                 <?php if($report_type == 'daily'): ?>
+                    <?php
+                    // Calculate daily summary properly for each employee
+                    $daily_present = $daily_late = $daily_absent = $daily_half_day = $daily_holiday = 0;
+                    $employee_daily_status = [];
+                    
+                    foreach($report_data as $row) {
+                        $emp_id = $row['employee_id'];
+                        $status = $row['display_status']['status'];
+                        
+                        if (!isset($employee_daily_status[$emp_id])) {
+                            $employee_daily_status[$emp_id] = [
+                                'has_morning' => false,
+                                'has_afternoon' => false,
+                                'morning_status' => '',
+                                'afternoon_status' => '',
+                                'employee_name' => $row['name'],
+                                'employee_code' => $row['employee_code'],
+                                'total_hours' => 0,
+                                'total_late' => 0,
+                                'total_early' => 0
+                            ];
+                        }
+                        
+                        if ($row['session'] == 'morning') {
+                            $employee_daily_status[$emp_id]['has_morning'] = true;
+                            $employee_daily_status[$emp_id]['morning_status'] = $status;
+                        } else {
+                            $employee_daily_status[$emp_id]['has_afternoon'] = true;
+                            $employee_daily_status[$emp_id]['afternoon_status'] = $status;
+                        }
+                        
+                        $employee_daily_status[$emp_id]['total_hours'] += $row['calculated_working_hours'];
+                        $employee_daily_status[$emp_id]['total_late'] += $row['calculated_late_minutes'];
+                        $employee_daily_status[$emp_id]['total_early'] += $row['calculated_early_minutes'];
+                    }
+                    
+                    foreach ($employee_daily_status as $emp_id => $data) {
+                        if ($data['has_morning'] && $data['has_afternoon']) {
+                            if (($data['morning_status'] == 'present' || $data['morning_status'] == 'late') && 
+                                ($data['afternoon_status'] == 'present' || $data['afternoon_status'] == 'late')) {
+                                if ($data['morning_status'] == 'late' || $data['afternoon_status'] == 'late') {
+                                    $daily_late++;
+                                } else {
+                                    $daily_present++;
+                                }
+                            } elseif (($data['morning_status'] == 'present' || $data['morning_status'] == 'late') && 
+                                    $data['afternoon_status'] == 'absent') {
+                                $daily_half_day++;
+                            } elseif ($data['morning_status'] == 'absent' && 
+                                    ($data['afternoon_status'] == 'present' || $data['afternoon_status'] == 'late')) {
+                                $daily_half_day++;
+                            } elseif ($data['morning_status'] == 'holiday' || $data['afternoon_status'] == 'holiday') {
+                                $daily_holiday++;
+                            } else {
+                                $daily_absent++;
+                            }
+                        } elseif ($data['has_morning'] && !$data['has_afternoon']) {
+                            if ($data['morning_status'] == 'holiday') {
+                                $daily_holiday++;
+                            } else {
+                                $daily_half_day++;
+                            }
+                        } elseif (!$data['has_morning'] && $data['has_afternoon']) {
+                            if ($data['afternoon_status'] == 'holiday') {
+                                $daily_holiday++;
+                            } else {
+                                $daily_half_day++;
+                            }
+                        } else {
+                            $daily_absent++;
+                        }
+                    }
+                    ?>
+                    
                     <!-- Morning Session Table -->
-                    <div class="section-title">🌅 Morning Session (9:00 - 12:00)</div>
+                    <div class="section-title morning">🌅 MORNING SESSION (9:00 - 12:00)</div>
                     <div class="table-responsive">
                         <table class="data-table">
-                            <thead><tr><th>Employee Code</th><th>Employee Name</th><th>Department</th><th>Position</th><th>Check In</th><th>Check Out</th><th>Hours</th><th>Status</th><th>Late</th><th>Early</th><th>Reason</th></tr></thead>
+                            <thead>
+                                <tr>
+                                    <th>Employee Code</th>
+                                    <th>Employee Name</th>
+                                    <th>Department</th>
+                                    <th>Position</th>
+                                    <th>Check In</th>
+                                    <th>Check Out</th>
+                                    <th>Hours</th>
+                                    <th>Status</th>
+                                    <th>Late</th>
+                                    <th>Early</th>
+                                    <th>Reason</th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 <?php if(count($morning_data) > 0): ?>
                                     <?php foreach($morning_data as $row): ?>
-                                    <tr>
-                                        <td><?php echo htmlspecialchars($row['employee_code']); ?></td>
-                                        <td><?php echo htmlspecialchars($row['name']); ?></td>
-                                        <td><?php echo htmlspecialchars($row['department']); ?></td>
-                                        <td><?php echo htmlspecialchars($row['position']); ?></td>
-                                        <td><?php echo $row['check_in_time'] ? date('h:i A', strtotime($row['check_in_time'])) : '-'; ?></td>
-                                        <td><?php echo $row['check_out_time'] ? date('h:i A', strtotime($row['check_out_time'])) : '-'; ?></td>
-                                        <td><?php echo number_format($row['calculated_working_hours'], 2); ?></td>
-                                        <td><span class="status-badge <?php echo $row['display_status']['class']; ?>"><?php echo $row['display_status']['text']; ?></span></td>
-                                        <td><?php echo $row['calculated_late_minutes'] > 0 ? $row['calculated_late_minutes'] . ' min' : '-'; ?></td>
-                                        <td><?php echo $row['calculated_early_minutes'] > 0 ? $row['calculated_early_minutes'] . ' min' : '-'; ?></td>
-                                        <td class="reason-text">
-                                            <?php if(!empty($row['reason'])): ?>
-                                                <div class="reason-label">Reason:</div>
-                                                <?php echo nl2br(htmlspecialchars($row['reason'])); ?>
-                                            <?php else: ?>
-                                                -
-                                            <?php endif; ?>
-                                        </td>
-                                    </tr>
+                                        <tr>
+                                            <td><?php echo htmlspecialchars($row['employee_code']); ?></td>
+                                            <td><?php echo htmlspecialchars($row['name']); ?></td>
+                                            <td><?php echo htmlspecialchars($row['department']); ?></td>
+                                            <td><?php echo htmlspecialchars($row['position']); ?></td>
+                                            <td><?php echo $row['check_in_time'] ? date('h:i A', strtotime($row['check_in_time'])) : '-'; ?></td>
+                                            <td><?php echo $row['check_out_time'] ? date('h:i A', strtotime($row['check_out_time'])) : '-'; ?></td>
+                                            <td><?php echo number_format($row['calculated_working_hours'], 2); ?></td>
+                                            <td><span class="status-badge <?php echo $row['display_status']['class']; ?>"><?php echo $row['display_status']['text']; ?></span></td>
+                                            <td><?php echo $row['calculated_late_minutes'] > 0 ? $row['calculated_late_minutes'] . ' min' : '-'; ?></td>
+                                            <td><?php echo $row['calculated_early_minutes'] > 0 ? $row['calculated_early_minutes'] . ' min' : '-'; ?></td>
+                                            <td class="reason-text">
+                                                <?php if(!empty($row['reason'])): ?>
+                                                    <div class="reason-label">Reason:</div>
+                                                    <?php echo nl2br(htmlspecialchars($row['reason'])); ?>
+                                                <?php else: ?>
+                                                    -
+                                                <?php endif; ?>
+                                             </td
+                                         ?>
                                     <?php endforeach; ?>
                                 <?php else: ?>
-                                    <tr><td colspan="11" class="no-data">No morning session records found</td></tr>
+                                    <tr><td colspan="11" class="no-data">No morning session records found</td>
+                                    </tr>
                                 <?php endif; ?>
                             </tbody>
                         </table>
                     </div>
                     
+                    <div style="height: 20px;"></div>
+                    
                     <!-- Afternoon Session Table -->
-                    <div class="section-title">🌙 Afternoon Session (13:00 - 18:00)</div>
+                    <div class="section-title afternoon">🌙 AFTERNOON SESSION (13:00 - 18:00)</div>
                     <div class="table-responsive">
                         <table class="data-table">
                             <thead>
@@ -1159,36 +1253,67 @@ if($report_type == 'daily' && $report_data) {
                             <tbody>
                                 <?php if(count($afternoon_data) > 0): ?>
                                     <?php foreach($afternoon_data as $row): ?>
-                                    <tr>
-                                        <td><?php echo htmlspecialchars($row['employee_code']); ?></td>
-                                        <td><?php echo htmlspecialchars($row['name']); ?></td>
-                                        <td><?php echo htmlspecialchars($row['department']); ?></td>
-                                        <td><?php echo htmlspecialchars($row['position']); ?></td>
-                                        <td><?php echo $row['check_in_time'] ? date('h:i A', strtotime($row['check_in_time'])) : '-'; ?></td>
-                                        <td><?php echo $row['check_out_time'] ? date('h:i A', strtotime($row['check_out_time'])) : '-'; ?></td>
-                                        <td><?php echo number_format($row['calculated_working_hours'], 2); ?></td>
-                                        <td><span class="status-badge <?php echo $row['display_status']['class']; ?>"><?php echo $row['display_status']['text']; ?></span></td>
-                                        <td><?php echo $row['calculated_late_minutes'] > 0 ? $row['calculated_late_minutes'] . ' min' : '-'; ?></td>
-                                        <td><?php echo $row['calculated_early_minutes'] > 0 ? $row['calculated_early_minutes'] . ' min' : '-'; ?></td>
-                                        <td class="reason-text">
-                                            <?php if(!empty($row['reason'])): ?>
-                                                <div class="reason-label">Reason:</div>
-                                                <?php echo nl2br(htmlspecialchars($row['reason'])); ?>
-                                            <?php else: ?>
-                                                -
-                                            <?php endif; ?>
-                                        </td>
-                                    </tr>
+                                        <tr>
+                                            <td><?php echo htmlspecialchars($row['employee_code']); ?></td>
+                                            <td><?php echo htmlspecialchars($row['name']); ?></td>
+                                            <td><?php echo htmlspecialchars($row['department']); ?></td>
+                                            <td><?php echo htmlspecialchars($row['position']); ?></td>
+                                            <td><?php echo $row['check_in_time'] ? date('h:i A', strtotime($row['check_in_time'])) : '-'; ?></td>
+                                            <td><?php echo $row['check_out_time'] ? date('h:i A', strtotime($row['check_out_time'])) : '-'; ?></td>
+                                            <td><?php echo number_format($row['calculated_working_hours'], 2); ?></td>
+                                            <td><span class="status-badge <?php echo $row['display_status']['class']; ?>"><?php echo $row['display_status']['text']; ?></span></td>
+                                            <td><?php echo $row['calculated_late_minutes'] > 0 ? $row['calculated_late_minutes'] . ' min' : '-'; ?></td>
+                                            <td><?php echo $row['calculated_early_minutes'] > 0 ? $row['calculated_early_minutes'] . ' min' : '-'; ?></td>
+                                            <td class="reason-text">
+                                                <?php if(!empty($row['reason'])): ?>
+                                                    <div class="reason-label">Reason:</div>
+                                                    <?php echo nl2br(htmlspecialchars($row['reason'])); ?>
+                                                <?php else: ?>
+                                                    -
+                                                <?php endif; ?>
+                                             </td
+                                         ?>
                                     <?php endforeach; ?>
                                 <?php else: ?>
-                                    <tr>
-                                        <td colspan="11" class="no-data">No afternoon session records found</td>
-                                    </tr>
+                                    <td><td colspan="11" class="no-data">No afternoon session records found</td>
+                                    </table>
                                 <?php endif; ?>
                             </tbody>
                         </table>
                     </div>
+                                        
+                    <div class="summary-separator"></div>
+                    <!-- Employee Summary Table - Separate section -->
+                    <div class="table-responsive">
+                        <table class="data-table summary-table">
+                            <thead>
+                                <tr>
+                                    <th>Employee Code</th>
+                                    <th>Employee Name</th>
+                                    <th style="text-align: center;">Morning</th>
+                                    <th style="text-align: center;">Afternoon</th>
+                                    <th style="text-align: center;">Total Hours</th>
+                                    <th style="text-align: center;">Late (min)</th>
+                                    <th style="text-align: center;">Early (min)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach($employee_daily_status as $emp_id => $data): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars($data['employee_code']); ?></td>
+                                        <td><?php echo htmlspecialchars($data['employee_name']); ?></td>
+                                        <td style="text-align: center;"><span class="status-badge status-<?php echo strtolower(str_replace(' ', '-', $data['morning_status'] ?: 'absent')); ?>"><?php echo ucfirst($data['morning_status'] ?: 'Absent'); ?></span></td>
+                                        <td style="text-align: center;"><span class="status-badge status-<?php echo strtolower(str_replace(' ', '-', $data['afternoon_status'] ?: 'absent')); ?>"><?php echo ucfirst($data['afternoon_status'] ?: 'Absent'); ?></span></td>
+                                        <td style="text-align: center;"><?php echo number_format($data['total_hours'], 2); ?></td>
+                                        <td style="text-align: center;"><?php echo $data['total_late']; ?></td>
+                                        <td style="text-align: center;"><?php echo $data['total_early']; ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 <?php else: ?>
+                    <!-- Monthly/Custom Report -->
                     <div class="table-responsive">
                         <table class="data-table">
                             <thead>
@@ -1209,19 +1334,34 @@ if($report_type == 'daily' && $report_data) {
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach($report_data as $row): ?>
+                                <?php 
+                                $current_date = '';
+                                foreach($report_data as $row): 
+                                    $row_date = date('d-m-Y', strtotime($row['record_date']));
+                                    // Add separator row when date changes
+                                    if($current_date != '' && $current_date != $row_date):
+                                ?>
+                                    <tr class="date-separator">
+                                        <td colspan="13" style="background: #f0f0f0; text-align: center; padding: 5px;">
+                                            <strong><?php echo $row_date; ?></strong>
+                                        </td>
+                                    </tr>
+                                <?php 
+                                    endif;
+                                    $current_date = $row_date;
+                                ?>
                                 <tr>
-                                    <td><?php echo date('d-m-Y', strtotime($row['record_date'])); ?></td>
+                                    <td><?php echo $row_date; ?></td>
                                     <td><?php echo htmlspecialchars($row['employee_code']); ?></td>
                                     <td><?php echo htmlspecialchars($row['name']); ?></td>
                                     <td><?php echo htmlspecialchars($row['department']); ?></td>
                                     <td><?php echo htmlspecialchars($row['position']); ?></td>
-                                    <td class="<?php echo ($row['session'] == 'morning') ? 'session-morning' : 'session-afternoon'; ?>">
+                                    <td class="<?php echo ($row['session'] == 'morning') ? 'session-morning' : 'session-afternoon'; ?>" style="text-align: center;">
                                         <?php echo ($row['session'] == 'morning') ? 'Morning' : 'Afternoon'; ?>
                                     </td>
                                     <td><?php echo $row['check_in_time'] ? date('h:i A', strtotime($row['check_in_time'])) : '-'; ?></td>
                                     <td><?php echo $row['check_out_time'] ? date('h:i A', strtotime($row['check_out_time'])) : '-'; ?></td>
-                                    <td><?php echo number_format($row['calculated_working_hours'], 2); ?></td>
+                                    <td style="text-align: center;"><?php echo number_format($row['calculated_working_hours'], 2); ?></td>
                                     <td><span class="status-badge <?php echo $row['display_status']['class']; ?>"><?php echo $row['display_status']['text']; ?></span></td>
                                     <td><?php echo $row['calculated_late_minutes'] > 0 ? $row['calculated_late_minutes'] . ' min' : '-'; ?></td>
                                     <td><?php echo $row['calculated_early_minutes'] > 0 ? $row['calculated_early_minutes'] . ' min' : '-'; ?></td>
@@ -1232,18 +1372,86 @@ if($report_type == 'daily' && $report_data) {
                                         <?php else: ?>
                                             -
                                         <?php endif; ?>
-                                    </td>
-                                    
-                                    </td>
+                                    </td
+                                ?>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Employee Summary Table for Monthly/Custom -->
+                    <?php
+                    // Calculate employee summary for monthly/custom report
+                    $monthly_employee_summary = [];
+                    foreach($report_data as $row) {
+                        $emp_id = $row['employee_id'];
+                        if (!isset($monthly_employee_summary[$emp_id])) {
+                            $monthly_employee_summary[$emp_id] = [
+                                'employee_code' => $row['employee_code'],
+                                'employee_name' => $row['name'],
+                                'total_hours' => 0,
+                                'total_late' => 0,
+                                'total_early' => 0,
+                                'present_count' => 0,
+                                'late_count' => 0,
+                                'absent_count' => 0,
+                                'half_day_count' => 0,
+                                'holiday_count' => 0
+                            ];
+                        }
+                        
+                        $status = $row['display_status']['status'];
+                        if($status == 'present') $monthly_employee_summary[$emp_id]['present_count']++;
+                        elseif($status == 'late') $monthly_employee_summary[$emp_id]['late_count']++;
+                        elseif($status == 'absent') $monthly_employee_summary[$emp_id]['absent_count']++;
+                        elseif($status == 'half_day') $monthly_employee_summary[$emp_id]['half_day_count']++;
+                        elseif($status == 'holiday') $monthly_employee_summary[$emp_id]['holiday_count']++;
+                        
+                        $monthly_employee_summary[$emp_id]['total_hours'] += $row['calculated_working_hours'];
+                        $monthly_employee_summary[$emp_id]['total_late'] += $row['calculated_late_minutes'];
+                        $monthly_employee_summary[$emp_id]['total_early'] += $row['calculated_early_minutes'];
+                    }
+                    ?>
+                    
+                    <div class="summary-separator"></div>
+                    <div class="table-responsive">
+                        <table class="data-table summary-table">
+                            <thead>
+                                <tr>
+                                    <th>Employee Code</th>
+                                    <th>Employee Name</th>
+                                    <th style="text-align: center;">Present</th>
+                                    <th style="text-align: center;">Late</th>
+                                    <th style="text-align: center;">Absent</th>
+                                    <th style="text-align: center;">Half Day</th>
+                                    <th style="text-align: center;">Holiday</th>
+                                    <th style="text-align: center;">Total Hours</th>
+                                    <th style="text-align: center;">Late (min)</th>
+                                    <th style="text-align: center;">Early (min)</th>
                                 </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach($monthly_employee_summary as $emp_id => $data): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars($data['employee_code']); ?></td>
+                                        <td><?php echo htmlspecialchars($data['employee_name']); ?></td>
+                                        <td style="text-align: center;"><?php echo $data['present_count']; ?></td>
+                                        <td style="text-align: center;"><?php echo $data['late_count']; ?></td>
+                                        <td style="text-align: center;"><?php echo $data['absent_count']; ?></td>
+                                        <td style="text-align: center;"><?php echo $data['half_day_count']; ?></td>
+                                        <td style="text-align: center;"><?php echo $data['holiday_count']; ?></td>
+                                        <td style="text-align: center;"><?php echo number_format($data['total_hours'], 2); ?></td>
+                                        <td style="text-align: center;"><?php echo $data['total_late']; ?></td>
+                                        <td style="text-align: center;"><?php echo $data['total_early']; ?></td>
+                                    </tr>
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
                 <?php endif; ?>
             </div>
-        </div>
-    <?php endif; ?>
+        <?php endif; ?>
+    </div>
 </div>
 </body>
 </html>
