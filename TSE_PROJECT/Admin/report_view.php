@@ -119,23 +119,35 @@ if(isset($_GET['export_pdf']) && $_GET['export_pdf'] == '1') {
         $export_data[] = $row;
     }
     
-    // Generate filename
+    // Generate filename with employee name for PDF
     if($export_report_type == 'daily') {
-        $filename = "Attendance_Report_Daily_" . date('d-m-Y', strtotime($export_start_date));
+        $date_display = date('d-m-Y', strtotime($export_start_date));
+        $employee_data = ($export_selected_employee != 'all') ? getEmployeeNameForDisplayPDF($conn, $export_selected_employee) : ['display' => 'All Employees', 'name' => 'All_Employees'];
+        $employee_display_name = $employee_data['display'];
+        $clean_employee_name = preg_replace('/[^A-Za-z0-9]/', '_', $employee_data['name']);
+        $filename = "Daily_Attendance_Report_{$clean_employee_name}_{$date_display}";
+        $report_title = "Daily Report - " . $date_display . " (" . $employee_display_name . ")";
     } elseif($export_report_type == 'monthly') {
-        $filename = "Attendance_Report_Monthly_" . date('F_Y', strtotime($export_start_date));
+        $month_year = date('F Y', strtotime($export_start_date));
+        $employee_data = ($export_selected_employee != 'all') ? getEmployeeNameForDisplayPDF($conn, $export_selected_employee) : ['display' => 'All Employees', 'name' => 'All_Employees'];
+        $employee_display_name = $employee_data['display'];
+        $clean_employee_name = preg_replace('/[^A-Za-z0-9]/', '_', $employee_data['name']);
+        $filename = "Monthly_Attendance_Report_{$clean_employee_name}_{$month_year}";
+        $report_title = "Monthly Report - " . $month_year . " (" . $employee_display_name . ")";
     } else {
-        $filename = "Attendance_Report_Custom_" . date('d-m-Y', strtotime($export_start_date)) . "_to_" . date('d-m-Y', strtotime($export_end_date));
+        $start_display = date('d-m-Y', strtotime($export_start_date));
+        $end_display = date('d-m-Y', strtotime($export_end_date));
+        $employee_data = ($export_selected_employee != 'all') ? getEmployeeNameForDisplayPDF($conn, $export_selected_employee) : ['display' => 'All Employees', 'name' => 'All_Employees'];
+        $employee_display_name = $employee_data['display'];
+        $clean_employee_name = preg_replace('/[^A-Za-z0-9]/', '_', $employee_data['name']);
+        $filename = "Custom_Attendance_Report_{$clean_employee_name}_{$start_display}_to_{$end_display}";
+        $report_title = "Custom Report - " . $start_display . " - " . $end_display . " (" . $employee_display_name . ")";
     }
-    
-    // PDF Class with improved table handling
+
+    // PDF Class
     class PDF extends FPDF {
-        // Disable header on subsequent pages
         function Header() {
-            // Only show header on first page
             if($this->PageNo() == 1) {
-                $this->SetFont('Arial', 'B', 16);
-                $this->Cell(0, 10, 'ATTENDANCE REPORT', 0, 1, 'C');
                 $this->Ln(5);
             }
         }
@@ -146,10 +158,11 @@ if(isset($_GET['export_pdf']) && $_GET['export_pdf'] == '1') {
             $this->Cell(0, 10, 'Page ' . $this->PageNo() . ' | Generated: ' . date('d-m-Y H:i:s'), 0, 0, 'C');
         }
         
-        function ImprovedTable($header, $data, $colWidths) {
-            // Header with border
+        function ReportTable($header, $data, $colWidths) {
+            // Header with white text on dark background
             $this->SetFont('Arial', 'B', 8);
-            $this->SetFillColor(220, 220, 220);
+            $this->SetFillColor(52, 58, 64);  // Dark gray background
+            $this->SetTextColor(255, 255, 255);  // White text
             $this->SetDrawColor(0, 0, 0);
             $this->SetLineWidth(0.2);
             
@@ -158,81 +171,89 @@ if(isset($_GET['export_pdf']) && $_GET['export_pdf'] == '1') {
             }
             $this->Ln();
             
-            // Data with borders
+            // Data - reset text color to black
+            $this->SetTextColor(0, 0, 0);
             $this->SetFont('Arial', '', 7);
             $this->SetFillColor(255, 255, 255);
             $fill = false;
             
             foreach($data as $row) {
-                // Check if we need a page break
-                if($this->GetY() > 260) {
+                if($this->GetY() > 250) {
                     $this->AddPage();
-                    // Re-print table header on new page (but not the main report header)
+                    // Re-print header on new page
+                    $this->SetFont('Arial', 'B', 8);
+                    $this->SetFillColor(52, 58, 64);
+                    $this->SetTextColor(255, 255, 255);
                     for($i = 0; $i < count($header); $i++) {
                         $this->Cell($colWidths[$i], 8, $header[$i], 1, 0, 'C', true);
                     }
                     $this->Ln();
+                    $this->SetTextColor(0, 0, 0);
+                    $this->SetFont('Arial', '', 7);
+                    $this->SetFillColor(255, 255, 255);
                 }
                 
                 for($i = 0; $i < count($row); $i++) {
-                    $this->Cell($colWidths[$i], 7, $row[$i], 1, 0, 'L', $fill);
+                    $this->Cell($colWidths[$i], 6, $row[$i], 1, 0, 'L', $fill);
                 }
                 $this->Ln();
                 $fill = !$fill;
             }
         }
         
-        function SummaryTable($title, $summaryData) {
-            $this->Ln(8);
-            $this->SetFont('Arial', 'B', 12);
-            $this->Cell(0, 10, $title, 0, 1, 'C');
-            $this->Ln(2);
-            
-            $this->SetFont('Arial', '', 9);
+        function DateSeparator($date) {
+            $this->SetFont('Arial', 'B', 9);
+            $this->SetFillColor(240, 240, 240);
+            $this->SetTextColor(0, 0, 0);
+            $this->Cell(0, 7, $date, 1, 1, 'C', true);
+            $this->SetFillColor(255, 255, 255);
+        }
+        
+        function SummaryTable($header, $data, $colWidths) {
+            // Header with white text
+            $this->SetFont('Arial', 'B', 9);
+            $this->SetFillColor(123, 31, 162);  // Purple background
+            $this->SetTextColor(255, 255, 255);
             $this->SetDrawColor(0, 0, 0);
             $this->SetLineWidth(0.2);
             
-            // Calculate total width for centering (2 columns)
-            $col1Width = 80;
-            $col2Width = 50;
-            $totalWidth = $col1Width + $col2Width;
-            $startX = ($this->GetPageWidth() - $totalWidth) / 2;
+            for($i = 0; $i < count($header); $i++) {
+                $this->Cell($colWidths[$i], 8, $header[$i], 1, 0, 'C', true);
+            }
+            $this->Ln();
             
-            foreach($summaryData as $index => $item) {
-                $this->SetX($startX);
-                $this->SetFont('Arial', 'B', 9);
-                $this->Cell($col1Width, 8, $item['label'], 1, 0, 'L', true);
-                $this->SetFont('Arial', '', 9);
-                $this->Cell($col2Width, 8, $item['value'], 1, 1, 'L', false);
+            // Data - black text
+            $this->SetTextColor(0, 0, 0);
+            $this->SetFont('Arial', '', 8);
+            $this->SetFillColor(255, 255, 255);
+            $fill = false;
+            
+            foreach($data as $row) {
+                for($i = 0; $i < count($row); $i++) {
+                    $this->Cell($colWidths[$i], 7, $row[$i], 1, 0, 'C', $fill);
+                }
+                $this->Ln();
+                $fill = !$fill;
             }
         }
     }
-    
+
     $pdf = new PDF('L', 'mm', 'A4');
     $pdf->AliasNbPages();
     $pdf->AddPage();
     $pdf->SetMargins(8, 10, 8);
     $pdf->SetAutoPageBreak(true, 15);
-    
-    // Report Header Info (only on first page, outside the Header() function)
+
+    // Report Title
+    $pdf->SetFont('Arial', 'B', 14);
+    $pdf->SetTextColor(0, 0, 0);
+    $pdf->Cell(0, 10, $report_title, 0, 1, 'C');
     $pdf->SetFont('Arial', '', 10);
-    $employee_display = getEmployeeNameForDisplayPDF($conn, $export_selected_employee);
-    
-    if($export_report_type == 'daily') {
-        $pdf->Cell(0, 7, 'Report Type: Daily Report', 0, 1, 'C');
-        $pdf->Cell(0, 7, 'Date: ' . date('d-m-Y', strtotime($export_start_date)), 0, 1, 'C');
-    } elseif($export_report_type == 'monthly') {
-        $pdf->Cell(0, 7, 'Report Type: Monthly Report', 0, 1, 'C');
-        $pdf->Cell(0, 7, 'Period: ' . date('F Y', strtotime($export_start_date)), 0, 1, 'C');
-    } else {
-        $pdf->Cell(0, 7, 'Report Type: Custom Date Range Report', 0, 1, 'C');
-        $pdf->Cell(0, 7, 'Period: ' . date('d-m-Y', strtotime($export_start_date)) . ' to ' . date('d-m-Y', strtotime($export_end_date)), 0, 1, 'C');
-    }
-    $pdf->Cell(0, 7, 'Employee: ' . $employee_display, 0, 1, 'C');
     $pdf->Cell(0, 7, 'Generated On: ' . date('d-m-Y H:i:s'), 0, 1, 'C');
     $pdf->Ln(8);
     
     if($export_report_type == 'daily') {
+        // Separate morning and afternoon sessions
         $morning_export = [];
         $afternoon_export = [];
         foreach($export_data as $row) {
@@ -246,37 +267,30 @@ if(isset($_GET['export_pdf']) && $_GET['export_pdf'] == '1') {
         // MORNING SESSION
         if(count($morning_export) > 0) {
             $pdf->SetFont('Arial', 'B', 11);
+            $pdf->SetTextColor(0, 0, 0);
             $pdf->Cell(0, 8, 'MORNING SESSION (9:00 - 12:00)', 0, 1, 'C');
             $pdf->Ln(2);
             
-            // COLUMN WIDTHS - ADJUST THESE VALUES TO CHANGE COLUMN WIDTHS (in mm)
-            // Total width should be around 270-280mm to fit A4 Landscape
-            $header = array('Emp Code', 'Name', 'Department', 'Position', 'Check In', 'Check Out', 'Hours', 'Status', 'Late', 'Early', 'Reason');
-            $colWidths = array(18, 40, 30, 30, 18, 18, 14, 16, 14, 14, 40);
+            $header = array('Emp Code', 'Name', 'Department', 'Position', 'Check In (AM)', 'Check Out (AM)', 'Hours', 'Status', 'Late', 'Early', 'Reason');
+            $colWidths = array(18, 35, 28, 28, 25, 25, 14, 18, 14, 14, 45);
             
             $data = [];
-            
             foreach($morning_export as $row) {
                 $data[] = array(
                     $row['employee_code'],
-                    $row['name'],
-                    $row['department'],
-                    $row['position'],
+                    substr($row['name'], 0, 18),
+                    substr($row['department'], 0, 12),
+                    substr($row['position'], 0, 12),
                     $row['check_in_time'] ? date('h:i', strtotime($row['check_in_time'])) : '-',
                     $row['check_out_time'] ? date('h:i', strtotime($row['check_out_time'])) : '-',
                     number_format($row['calculated_working_hours'], 2),
                     $row['display_status']['text'],
                     $row['calculated_late_minutes'] > 0 ? $row['calculated_late_minutes'] : '0',
                     $row['calculated_early_minutes'] > 0 ? $row['calculated_early_minutes'] : '0',
-                    str_replace(array("\r\n", "\n", "\r"), " ", $row['reason'] ?? '-')
+                    substr(str_replace(array("\r\n", "\n", "\r"), " ", $row['reason'] ?? '-'), 0, 35)
                 );
             }
-            
-            $pdf->ImprovedTable($header, $data, $colWidths);
-            $pdf->Ln(3);
-        } else {
-            $pdf->SetFont('Arial', '', 10);
-            $pdf->Cell(0, 8, 'No records found for morning session', 0, 1, 'C');
+            $pdf->ReportTable($header, $data, $colWidths);
             $pdf->Ln(3);
         }
         
@@ -286,173 +300,206 @@ if(isset($_GET['export_pdf']) && $_GET['export_pdf'] == '1') {
             $pdf->Cell(0, 8, 'AFTERNOON SESSION (13:00 - 18:00)', 0, 1, 'C');
             $pdf->Ln(2);
             
+            $header = array('Emp Code', 'Name', 'Department', 'Position', 'Check In (PM)', 'Check Out (PM)', 'Hours', 'Status', 'Late', 'Early', 'Reason');
+            $colWidths = array(18, 35, 28, 28, 25, 25, 14, 18, 14, 14, 45);
+            
             $data = [];
             foreach($afternoon_export as $row) {
                 $data[] = array(
-                    date('d-m-Y', strtotime($row['record_date'])),
                     $row['employee_code'],
-                    $row['name'],
-                    $row['department'],
-                    $row['position'],
-                    ($row['session'] == 'morning') ? 'AM' : 'PM',
+                    substr($row['name'], 0, 18),
+                    substr($row['department'], 0, 12),
+                    substr($row['position'], 0, 12),
                     $row['check_in_time'] ? date('h:i', strtotime($row['check_in_time'])) : '-',
                     $row['check_out_time'] ? date('h:i', strtotime($row['check_out_time'])) : '-',
                     number_format($row['calculated_working_hours'], 2),
                     $row['display_status']['text'],
                     $row['calculated_late_minutes'] > 0 ? $row['calculated_late_minutes'] : '0',
                     $row['calculated_early_minutes'] > 0 ? $row['calculated_early_minutes'] : '0',
-                    str_replace(array("\r\n", "\n", "\r"), " ", $row['reason'] ?? '-')
+                    substr(str_replace(array("\r\n", "\n", "\r"), " ", $row['reason'] ?? '-'), 0, 35)
                 );
             }
-            
-            $pdf->ImprovedTable($header, $data, $colWidths);
-            $pdf->Ln(3);
-        } else {
-            $pdf->SetFont('Arial', '', 10);
-            $pdf->Cell(0, 8, 'No records found for afternoon session', 0, 1, 'C');
+            $pdf->ReportTable($header, $data, $colWidths);
             $pdf->Ln(3);
         }
         
-        // SUMMARY
-        $employee_status = [];
-
+        // EMPLOYEE SUMMARY TABLE
+        $employee_daily_status = [];
         foreach($export_data as $row) {
             $emp_id = $row['employee_id'];
-            $status = $row['display_status']['status'];
-            $hours = $row['calculated_working_hours'];
-            
-            // For each employee, we need to determine their overall status for the day
-            if (!isset($employee_status[$emp_id])) {
-                $employee_status[$emp_id] = [
-                    'status' => $status,
-                    'hours' => 0,
-                    'has_morning' => false,
-                    'has_afternoon' => false,
-                    'morning_status' => '',
-                    'afternoon_status' => ''
+            if (!isset($employee_daily_status[$emp_id])) {
+                $employee_daily_status[$emp_id] = [
+                    'employee_code' => $row['employee_code'],
+                    'employee_name' => $row['name'],
+                    'morning_status' => '-',
+                    'afternoon_status' => '-',
+                    'total_hours' => 0,
+                    'total_late' => 0,
+                    'total_early' => 0
                 ];
             }
             
-            // Track session status
             if ($row['session'] == 'morning') {
-                $employee_status[$emp_id]['has_morning'] = true;
-                $employee_status[$emp_id]['morning_status'] = $status;
+                $employee_daily_status[$emp_id]['morning_status'] = $row['display_status']['text'];
             } else {
-                $employee_status[$emp_id]['has_afternoon'] = true;
-                $employee_status[$emp_id]['afternoon_status'] = $status;
+                $employee_daily_status[$emp_id]['afternoon_status'] = $row['display_status']['text'];
             }
             
-            $employee_status[$emp_id]['hours'] += $hours;
-            $total_hours += $hours;
+            $employee_daily_status[$emp_id]['total_hours'] += $row['calculated_working_hours'];
+            $employee_daily_status[$emp_id]['total_late'] += $row['calculated_late_minutes'];
+            $employee_daily_status[$emp_id]['total_early'] += $row['calculated_early_minutes'];
         }
-
-        // Determine overall status for each employee
-        foreach ($employee_status as $emp_id => $data) {
-            // If both sessions exist, combine logic
-            if ($data['has_morning'] && $data['has_afternoon']) {
-                // If both present or both late -> present/late
-                // If one absent and one present -> half day
-                if (($data['morning_status'] == 'present' || $data['morning_status'] == 'late') && 
-                    ($data['afternoon_status'] == 'present' || $data['afternoon_status'] == 'late')) {
-                    $overall = ($data['morning_status'] == 'late' || $data['afternoon_status'] == 'late') ? 'late' : 'present';
-                } elseif (($data['morning_status'] == 'present' || $data['morning_status'] == 'late') && 
-                        $data['afternoon_status'] == 'absent') {
-                    $overall = 'half_day';
-                } elseif ($data['morning_status'] == 'absent' && 
-                        ($data['afternoon_status'] == 'present' || $data['afternoon_status'] == 'late')) {
-                    $overall = 'half_day';
-                } else {
-                    $overall = 'absent';
-                }
-            } elseif ($data['has_morning'] && !$data['has_afternoon']) {
-                // Only morning session
-                $overall = $data['morning_status'] == 'absent' ? 'half_day' : 'half_day';
-            } elseif (!$data['has_morning'] && $data['has_afternoon']) {
-                // Only afternoon session
-                $overall = $data['afternoon_status'] == 'absent' ? 'half_day' : 'half_day';
-            } else {
-                $overall = 'absent';
-            }
-            
-            // Count overall status
-            if ($overall == 'present') $present++;
-            elseif ($overall == 'late') $late++;
-            elseif ($overall == 'half_day') $half_day++;
-            elseif ($overall == 'absent') $absent++;
-        }
-
-        $summaryData = array(
-            array('label' => 'Present', 'value' => $present),
-            array('label' => 'Late', 'value' => $late),
-            array('label' => 'Absent', 'value' => $absent),
-            array('label' => 'Half Day', 'value' => $half_day),
-            array('label' => 'Holiday', 'value' => $holiday),
-            array('label' => 'Total Working Hours', 'value' => number_format($total_hours, 1) . ' hrs')
-        );
         
-        $pdf->SummaryTable('SUMMARY', $summaryData);
+        $pdf->Ln(5);
+        $pdf->SetFont('Arial', 'B', 12);
+        $pdf->Cell(0, 8, 'EMPLOYEE SUMMARY', 0, 1, 'L');
+        $pdf->Ln(2);
+        
+        $emp_header = array('Emp Code', 'Employee Name', 'Morning', 'Afternoon', 'Total Hours', 'Late', 'Early');
+        $emp_colWidths = array(20, 45, 22, 22, 20, 18, 18);
+        $emp_data = [];
+        
+        foreach($employee_daily_status as $data) {
+            $emp_data[] = array(
+                $data['employee_code'],
+                substr($data['employee_name'], 0, 22),
+                $data['morning_status'],
+                $data['afternoon_status'],
+                number_format($data['total_hours'], 2),
+                $data['total_late'],
+                $data['total_early']
+            );
+        }
+        $pdf->SummaryTable($emp_header, $emp_data, $emp_colWidths);
         
     } else {
-        // MONTHLY/CUSTOM REPORT
-        if(count($export_data) > 0) {
+        // MONTHLY/CUSTOM REPORT with date separators
+        $header = array('Date', 'Code', 'Name', 'Department', 'Position', 'Session', 'In', 'Out', 'Hrs', 'Status', 'Late', 'Early', 'Reason');
+        $colWidths = array(20, 16, 30, 30, 30, 14, 16, 16, 12, 16, 12, 12, 40);
+        
+        // Print main header
+        $pdf->SetFont('Arial', 'B', 7);
+        $pdf->SetFillColor(52, 58, 64);
+        $pdf->SetTextColor(255, 255, 255);
+        for($i = 0; $i < count($header); $i++) {
+            $pdf->Cell($colWidths[$i], 7, $header[$i], 1, 0, 'C', true);
+        }
+        $pdf->Ln();
+        
+        $current_date = '';
+        $pdf->SetFont('Arial', '', 7);
+        $pdf->SetTextColor(0, 0, 0);
+        $pdf->SetFillColor(255, 255, 255);
+        $fill = false;
+        
+        foreach($export_data as $row) {
+            $row_date = date('d-m-Y', strtotime($row['record_date']));
             
-            $header = array('Date', 'Code', 'Name', 'Department', 'Position', 'Session', 'In', 'Out', 'Hrs', 'Status', 'Late', 'Early', 'Reason');
-            $colWidths = array(18, 15, 32, 30, 30, 12, 15, 15, 12, 15, 12, 12, 38);
-            
-            $data = [];
-            
-            foreach($export_data as $row) {
-                $data[] = array(
-                    date('d-m-Y', strtotime($row['record_date'])),
-                    $row['employee_code'],
-                    $row['name'],
-                    $row['department'],
-                    $row['position'],       
-                    ($row['session'] == 'morning') ? 'AM' : 'PM',
-                    $row['check_in_time'] ? date('h:i', strtotime($row['check_in_time'])) : '-',
-                    $row['check_out_time'] ? date('h:i', strtotime($row['check_out_time'])) : '-',
-                    number_format($row['calculated_working_hours'], 2),
-                    substr($row['display_status']['text'], 0, 6),
-                    $row['calculated_late_minutes'] > 0 ? $row['calculated_late_minutes'] : '0',
-                    $row['calculated_early_minutes'] > 0 ? $row['calculated_early_minutes'] : '0',
-                    substr(str_replace(array("\r\n", "\n", "\r"), " ", $row['reason'] ?? '-'), 0, 30)
-                );
+            // Check if we need a page break
+            if($pdf->GetY() > 250) {
+                $pdf->AddPage();
+                // Re-print header
+                $pdf->SetFont('Arial', 'B', 7);
+                $pdf->SetFillColor(52, 58, 64);
+                $pdf->SetTextColor(255, 255, 255);
+                for($i = 0; $i < count($header); $i++) {
+                    $pdf->Cell($colWidths[$i], 7, $header[$i], 1, 0, 'C', true);
+                }
+                $pdf->Ln();
+                $pdf->SetFont('Arial', '', 7);
+                $pdf->SetTextColor(0, 0, 0);
+                $pdf->SetFillColor(255, 255, 255);
             }
             
-            $pdf->ImprovedTable($header, $data, $colWidths);
-            $pdf->Ln(5);
-        } else {
-            $pdf->SetFont('Arial', '', 10);
-            $pdf->Cell(0, 8, 'No records found', 0, 1, 'C');
-            $pdf->Ln(5);
+            // Add date separator when date changes
+            if($current_date != '' && $current_date != $row_date) {
+                $pdf->Ln(1);
+                $pdf->SetFont('Arial', 'B', 8);
+                $pdf->SetFillColor(245, 245, 245);
+                $pdf->SetTextColor(0, 0, 0);
+                $pdf->Cell(array_sum($colWidths), 6, $row_date, 1, 1, 'C', true);
+                $pdf->SetFont('Arial', '', 7);
+                $pdf->SetFillColor(255, 255, 255);
+                $fill = !$fill;
+            }
+            
+            $current_date = $row_date;
+            
+            // Print data row
+            $pdf->Cell($colWidths[0], 6, $row_date, 1, 0, 'C', $fill);
+            $pdf->Cell($colWidths[1], 6, $row['employee_code'], 1, 0, 'L', $fill);
+            $pdf->Cell($colWidths[2], 6, $row['name'], 1, 0, 'L', $fill);
+            $pdf->Cell($colWidths[3], 6, $row['department'], 1, 0, 'L', $fill);
+            $pdf->Cell($colWidths[4], 6, $row['position'], 1, 0, 'L', $fill);
+            $pdf->Cell($colWidths[5], 6, ($row['session'] == 'morning') ? 'AM' : 'PM', 1, 0, 'C', $fill);
+            $pdf->Cell($colWidths[6], 6, $row['check_in_time'] ? date('h:i', strtotime($row['check_in_time'])) : '-', 1, 0, 'C', $fill);
+            $pdf->Cell($colWidths[7], 6, $row['check_out_time'] ? date('h:i', strtotime($row['check_out_time'])) : '-', 1, 0, 'C', $fill);
+            $pdf->Cell($colWidths[8], 6, number_format($row['calculated_working_hours'], 2), 1, 0, 'C', $fill);
+            $pdf->Cell($colWidths[9], 6, substr($row['display_status']['text'], 0, 6), 1, 0, 'C', $fill);
+            $pdf->Cell($colWidths[10], 6, $row['calculated_late_minutes'] > 0 ? $row['calculated_late_minutes'] : '0', 1, 0, 'C', $fill);
+            $pdf->Cell($colWidths[11], 6, $row['calculated_early_minutes'] > 0 ? $row['calculated_early_minutes'] : '0', 1, 0, 'C', $fill);
+            $pdf->Cell($colWidths[12], 6, substr(str_replace(array("\r\n", "\n", "\r"), " ", $row['reason'] ?? '-'), 0, 25), 1, 0, 'L', $fill);
+            $pdf->Ln();
+            $fill = !$fill;
         }
         
-        // SUMMARY
-        $present = $late = $absent = $half_day = $holiday = $total_hours = $total_late = $total_early = 0;
+        $pdf->Ln(8);
+        
+        // EMPLOYEE SUMMARY TABLE for Monthly/Custom
+        $monthly_employee_summary = [];
         foreach($export_data as $row) {
+            $emp_id = $row['employee_id'];
+            if (!isset($monthly_employee_summary[$emp_id])) {
+                $monthly_employee_summary[$emp_id] = [
+                    'employee_code' => $row['employee_code'],
+                    'employee_name' => $row['name'],
+                    'total_hours' => 0,
+                    'total_late' => 0,
+                    'total_early' => 0,
+                    'present_count' => 0,
+                    'late_count' => 0,
+                    'absent_count' => 0,
+                    'half_day_count' => 0,
+                    'holiday_count' => 0
+                ];
+            }
+            
             $status = $row['display_status']['status'];
-            if($status == 'present') $present++;
-            elseif($status == 'late') $late++;
-            elseif($status == 'absent') $absent++;
-            elseif($status == 'half_day') $half_day++;
-            elseif($status == 'holiday') $holiday++;
-            $total_hours += $row['calculated_working_hours'];
-            $total_late += $row['calculated_late_minutes'];
-            $total_early += $row['calculated_early_minutes'];
+            if($status == 'present') $monthly_employee_summary[$emp_id]['present_count']++;
+            elseif($status == 'late') $monthly_employee_summary[$emp_id]['late_count']++;
+            elseif($status == 'absent') $monthly_employee_summary[$emp_id]['absent_count']++;
+            elseif($status == 'half_day') $monthly_employee_summary[$emp_id]['half_day_count']++;
+            elseif($status == 'holiday') $monthly_employee_summary[$emp_id]['holiday_count']++;
+            
+            $monthly_employee_summary[$emp_id]['total_hours'] += $row['calculated_working_hours'];
+            $monthly_employee_summary[$emp_id]['total_late'] += $row['calculated_late_minutes'];
+            $monthly_employee_summary[$emp_id]['total_early'] += $row['calculated_early_minutes'];
         }
         
-        $summaryData = array(
-            array('label' => 'Present', 'value' => $present),
-            array('label' => 'Late', 'value' => $late),
-            array('label' => 'Absent', 'value' => $absent),
-            array('label' => 'Half Day', 'value' => $half_day),
-            array('label' => 'Holiday', 'value' => $holiday),
-            array('label' => 'Total Late Minutes', 'value' => $total_late),
-            array('label' => 'Total Early Minutes', 'value' => $total_early),
-            array('label' => 'Total Working Hours', 'value' => number_format($total_hours, 1) . ' hrs')
-        );
+        $pdf->SetFont('Arial', 'B', 12);
+        $pdf->SetTextColor(0, 0, 0);
+        $pdf->Cell(0, 8, 'EMPLOYEE SUMMARY', 0, 1, 'C');
+        $pdf->Ln(2);
         
-        $pdf->SummaryTable('SUMMARY', $summaryData);
+        $emp_header = array('Code', 'Name', 'Present', 'Late', 'Absent', 'Half', 'Holiday', 'Total Hrs', 'Late Mins', 'Early Mins');
+        $emp_colWidths = array(16, 35, 20, 20, 20, 20, 20, 25, 25, 25);
+        $emp_data = [];
+        
+        foreach($monthly_employee_summary as $data) {
+            $emp_data[] = array(
+                $data['employee_code'],
+                substr($data['employee_name'], 0, 18),
+                $data['present_count'],
+                $data['late_count'],
+                $data['absent_count'],
+                $data['half_day_count'],
+                $data['holiday_count'],
+                number_format($data['total_hours'], 2),
+                $data['total_late'],
+                $data['total_early']
+            );
+        }
+        $pdf->SummaryTable($emp_header, $emp_data, $emp_colWidths);
     }
     
     // Output PDF
@@ -531,13 +578,13 @@ if(isset($_GET['export_excel']) && $_GET['export_excel'] == '1') {
     header("Pragma: no-cache");
     header("Expires: 0");
     
-    // Get employee display name for header
+    // Get employee display name for PDF header
     if($export_selected_employee != 'all') {
         $employee_data = getEmployeeNameForDisplayPDF($conn, $export_selected_employee);
         $employee_display = $employee_data['display'];
     } else {
         $employee_display = 'All Employees';
-    }    
+    } 
     // Start HTML table format for Excel
     echo '<html>';
     echo '<head>';
