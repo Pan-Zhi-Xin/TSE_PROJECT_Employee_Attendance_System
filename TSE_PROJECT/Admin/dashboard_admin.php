@@ -148,134 +148,107 @@ function getStatusBadge($status) {
         </div>
     </div>
 
-    <!-- Morning Session Stats -->
-    <div class="stats-section">
-        <div class="stats-title">🌅 Morning Session (9:00 - 12:00)</div>
-        <div class="stats-grid">
-            <div class="stat-card morning">
-                <div class="stat-info">
-                    <h6>Present</h6>
-                    <h2 style="color: #28a745;"><?php echo $morning_present; ?></h2>
-                    <small>On time</small>
-                </div>
-                <div class="stat-icon">✅</div>
-            </div>
-            <div class="stat-card morning">
-                <div class="stat-info">
-                    <h6>Late</h6>
-                    <h2 style="color: #ffc107;"><?php echo $morning_late; ?></h2>
-                    <small>Came late</small>
-                </div>
-                <div class="stat-icon">⏰</div>
-            </div>
-            <div class="stat-card morning">
-                <div class="stat-info">
-                    <h6>Half Day</h6>
-                    <h2 style="color: #17a2b8;"><?php echo $morning_half_day; ?></h2>
-                    <small>Half day</small>
-                </div>
-                <div class="stat-icon">🌓</div>
-            </div>
-            <div class="stat-card morning">
-                <div class="stat-info">
-                    <h6>Holiday</h6>
-                    <h2 style="color: #007bff;"><?php echo $morning_holiday; ?></h2>
-                    <small>On holiday</small>
-                </div>
-                <div class="stat-icon">🏖️</div>
-            </div>
-            <div class="stat-card morning">
-                <div class="stat-info">
-                    <h6>Absent</h6>
-                    <h2 style="color: #dc3545;"><?php echo $morning_absent; ?></h2>
-                    <small>No show</small>
-                </div>
-                <div class="stat-icon">❌</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Afternoon Session Stats -->
-    <div class="stats-section">
-        <div class="stats-title">🌙 Afternoon Session (13:00 - 18:00)</div>
-        <div class="stats-grid">
-            <div class="stat-card afternoon">
-                <div class="stat-info">
-                    <h6>Present</h6>
-                    <h2 style="color: #28a745;"><?php echo $afternoon_present; ?></h2>
-                    <small>On time</small>
-                </div>
-                <div class="stat-icon">✅</div>
-            </div>
-            <div class="stat-card afternoon">
-                <div class="stat-info">
-                    <h6>Late</h6>
-                    <h2 style="color: #ffc107;"><?php echo $afternoon_late; ?></h2>
-                    <small>Came late</small>
-                </div>
-                <div class="stat-icon">⏰</div>
-            </div>
-            <div class="stat-card afternoon">
-                <div class="stat-info">
-                    <h6>Half Day</h6>
-                    <h2 style="color: #17a2b8;"><?php echo $afternoon_half_day; ?></h2>
-                    <small>Half day</small>
-                </div>
-                <div class="stat-icon">🌓</div>
-            </div>
-            <div class="stat-card afternoon">
-                <div class="stat-info">
-                    <h6>Holiday</h6>
-                    <h2 style="color: #007bff;"><?php echo $afternoon_holiday; ?></h2>
-                    <small>On holiday</small>
-                </div>
-                <div class="stat-icon">🏖️</div>
-            </div>
-            <div class="stat-card afternoon">
-                <div class="stat-info">
-                    <h6>Absent</h6>
-                    <h2 style="color: #dc3545;"><?php echo $afternoon_absent; ?></h2>
-                    <small>No show</small>
-                </div>
-                <div class="stat-icon">❌</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Employee Details Table with Enhanced Header Borders & Session Colors -->
     <div class="card">
         <div class="card-header">
-            <h5>Today's Employee Attendance Details</h5>
+            <h5>Employee Attendance</h5>
         </div>
         <div class="card-body">
+            <!-- Summary Cards at Bottom -->
+            <div class="summary-cards">
+                <!-- Morning Session Card -->
+                <div class="summary-card morning-card">
+                    <div class="summary-card-header">
+                        Morning Session (9:00 - 12:00)
+                    </div>
+                    <div class="summary-card-body">
+                        <div class="summary-stats">
+                            <div class="stat-item">
+                                <div class="stat-value present"><?php echo $morning_present; ?></div>
+                                <div class="stat-label">Present</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value late"><?php echo $morning_late; ?></div>
+                                <div class="stat-label">Late</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value absent"><?php echo $morning_absent; ?></div>
+                                <div class="stat-label">Absent</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value half-day"><?php echo $morning_half_day; ?></div>
+                                <div class="stat-label">Half Day</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value holiday"><?php echo $morning_holiday; ?></div>
+                                <div class="stat-label">Holiday</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value total"><?php echo $morning_present + $morning_late + $morning_absent + $morning_half_day + $morning_holiday; ?></div>
+                                <div class="stat-label">Total</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Afternoon Session Card -->
+                <div class="summary-card afternoon-card">
+                    <div class="summary-card-header">
+                        Afternoon Session (13:00 - 18:00)
+                    </div>
+                    <div class="summary-card-body">
+                        <div class="summary-stats">
+                            <div class="stat-item">
+                                <div class="stat-value present"><?php echo $afternoon_present; ?></div>
+                                <div class="stat-label">Present</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value late"><?php echo $afternoon_late; ?></div>
+                                <div class="stat-label">Late</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value absent"><?php echo $afternoon_absent; ?></div>
+                                <div class="stat-label">Absent</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value half-day"><?php echo $afternoon_half_day; ?></div>
+                                <div class="stat-label">Half Day</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value holiday"><?php echo $afternoon_holiday; ?></div>
+                                <div class="stat-label">Holiday</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value total"><?php echo $afternoon_present + $afternoon_late + $afternoon_absent + $afternoon_half_day + $afternoon_holiday; ?></div>
+                                <div class="stat-label">Total</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div class="table-responsive">
                 <table class="data-table">
                     <thead>
-                        <!-- First header row: session grouping with representative colors -->
                         <tr>
                             <th rowspan="2">Employee Code</th>
                             <th rowspan="2">Employee Name</th>
                             <th rowspan="2">Department</th>
                             <th rowspan="2">Position</th>
-                            <th colspan="3" class="morning-group">🌅 Morning Session (9:00 - 12:00)</th>
-                            <th colspan="3" class="afternoon-group">🌙 Afternoon Session (13:00 - 18:00)</th>
+                            <th colspan="3">Morning Session (9:00 - 12:00)</th>
+                            <th colspan="3">Afternoon Session (13:00 - 18:00)</th>
                         </tr>
-                        <!-- Second header row: sub-columns with session hint colors -->
                         <tr>
-                            <th>Check In</th>
-                            <th>Check Out</th>
-                            <th>Status</th>
-                            <th>Check In</th>
-                            <th>Check Out</th>
-                            <th>Status</th>
+                            <th class="morning-group">Check In</th>
+                            <th class="morning-group">Check Out</th>
+                            <th class="morning-group">Status</th>
+                            <th class="afternoon-group">Check In</th>
+                            <th class="afternoon-group">Check Out</th>
+                            <th class="afternoon-group">Status</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if(mysqli_num_rows($employee_result) > 0): ?>
                             <?php while($row = mysqli_fetch_assoc($employee_result)): 
-                                // Morning session
                                 $morning_badge = getStatusBadge($row['morning_status']);
-                                // Afternoon session
                                 $afternoon_badge = getStatusBadge($row['afternoon_status']);
                             ?>
                             <tr>
@@ -285,19 +258,19 @@ function getStatusBadge($status) {
                                 <td><?php echo htmlspecialchars($row['position']); ?></td>
                                 
                                 <!-- Morning Session Data -->
-                                <td><?php echo $row['morning_in'] ? date('h:i A', strtotime($row['morning_in'])) : '-'; ?></td>
-                                <td><?php echo $row['morning_out'] ? date('h:i A', strtotime($row['morning_out'])) : '-'; ?></td>
-                                <td><span class="badge <?php echo $morning_badge['class']; ?>"><?php echo $morning_badge['text']; ?></span></td>
+                                <td class="morning-data"><?php echo $row['morning_in'] ? date('h:i A', strtotime($row['morning_in'])) : '-'; ?></td>
+                                <td class="morning-data"><?php echo $row['morning_out'] ? date('h:i A', strtotime($row['morning_out'])) : '-'; ?></td>
+                                <td class="morning-data"><span class="badge <?php echo $morning_badge['class']; ?>"><?php echo $morning_badge['text']; ?></span></td>
                                 
                                 <!-- Afternoon Session Data -->
-                                <td><?php echo $row['afternoon_in'] ? date('h:i A', strtotime($row['afternoon_in'])) : '-'; ?></td>
-                                <td><?php echo $row['afternoon_out'] ? date('h:i A', strtotime($row['afternoon_out'])) : '-'; ?></td>
-                                <td><span class="badge <?php echo $afternoon_badge['class']; ?>"><?php echo $afternoon_badge['text']; ?></span></td>
+                                <td class="afternoon-data"><?php echo $row['afternoon_in'] ? date('h:i A', strtotime($row['afternoon_in'])) : '-'; ?></td>
+                                <td class="afternoon-data"><?php echo $row['afternoon_out'] ? date('h:i A', strtotime($row['afternoon_out'])) : '-'; ?></td>
+                                <td class="afternoon-data"><span class="badge <?php echo $afternoon_badge['class']; ?>"><?php echo $afternoon_badge['text']; ?></span></td>
                             </tr>
                             <?php endwhile; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="10" class="text-center">No employees found</td>
+                                <td colspan="10" class="text-center">No employees found</td
                             </tr>
                         <?php endif; ?>
                     </tbody>

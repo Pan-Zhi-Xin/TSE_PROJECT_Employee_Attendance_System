@@ -50,59 +50,6 @@ body {
     font-weight: bold;
 }
 
-.stats-section {
-    margin-bottom: 25px;
-}
-
-.stats-title {
-    font-size: 14px;
-    font-weight: bold;
-    margin-bottom: 10px;
-    color: #555;
-    padding-left: 5px;
-}
-
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 15px;
-}
-
-.stat-card {
-    background: white;
-    border-radius: 12px;
-    padding: 15px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    border-top: 4px solid #dc3545;
-}
-
-.stat-card.morning { border-top-color: #007bff; }
-.stat-card.afternoon { border-top-color: #fd7e14; }
-
-.stat-info h6 {
-    color: #666;
-    font-size: 12px;
-    margin-bottom: 5px;
-}
-
-.stat-info h2 {
-    font-size: 28px;
-    color: #333;
-    margin-bottom: 5px;
-}
-
-.stat-info small {
-    color: #999;
-    font-size: 10px;
-}
-
-.stat-icon {
-    font-size: 32px;
-}
-
 .card {
     background: white;
     border-radius: 12px;
@@ -114,13 +61,9 @@ body {
     background: #dc3545;
     color: white;
     padding: 15px 20px;
-}
-
-.card-header h5 {
-    margin: 0;
+    font-weight: bold;
     font-size: 16px;
 }
-
 .card-body {
     padding: 20px;
 }
@@ -129,30 +72,55 @@ body {
     overflow-x: auto;
 }
 
+/* Main Data Table */
 .data-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 13px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
 }
 
+/* Main header row */
 .data-table th {
     background: #343a40;
     color: white;
     padding: 12px;
     text-align: center;
-    border: 1px solid white;
+    border: 1px solid #f0f0f0;
+    font-weight: 600;
+}
+
+/* Morning Session Data */
+.data-table td.morning-data {
+    background: rgba(74, 144, 226, 0.08);
+}
+
+/* Afternoon Session Data */
+.data-table td.afternoon-data {
+    background: rgba(245, 166, 35, 0.08);
 }
 
 .data-table td {
     padding: 10px;
     text-align: center;
-    border: 1px solid #eee;
+    border: 1px solid #f0f0f0;
 }
 
 .data-table tbody tr:hover {
-    background: #f8f9fa;
+    background: #fafafa;
 }
 
+.data-table tbody tr:hover td.morning-data {
+    background: rgba(74, 144, 226, 0.15);
+}
+
+.data-table tbody tr:hover td.afternoon-data {
+    background: rgba(245, 166, 35, 0.15);
+}
+
+/* Status Badges */
 .badge {
     padding: 4px 10px;
     border-radius: 20px;
@@ -164,4 +132,83 @@ body {
 .badge-warning { background: #ffc107; color: #333; }
 .badge-danger { background: #dc3545; color: white; }
 .badge-info { background: #17a2b8; color: white; }
-.badge-primary { background: #007bff; color: white; }
+.badge-primary { background: #4A90E2; color: white; }
+
+/* Summary Cards Styles */
+.summary-cards {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 50px;
+}
+
+.summary-card {
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.summary-card.morning-card {
+    background: rgba(74, 144, 226, 0.05);
+}
+
+.summary-card.afternoon-card {
+    background: rgba(245, 166, 35, 0.05);
+}
+
+.summary-card-header {
+    padding: 15px 20px;
+    font-weight: bold;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.morning-card .summary-card-header {
+    background: rgba(74, 144, 226, 0.15);
+    color: #4A90E2;
+}
+
+.afternoon-card .summary-card-header {
+    background: rgba(245, 166, 35, 0.15);
+    color: #F5A623;
+}
+
+.summary-card-body {
+    padding: 15px 20px;
+}
+
+.summary-stats {
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.stat-item {
+    text-align: center;
+    flex: 1;
+    min-width: 80px;
+}
+
+.stat-value {
+    font-size: 20px;
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    font-size: 12px;
+    color: #666;
+}
+
+.morning-card .stat-value.present { color: #28a745; }
+.morning-card .stat-value.late { color: #ffc107; }
+.morning-card .stat-value.absent { color: #dc3545; }
+.morning-card .stat-value.total { font-weight: bold; }
+
+.afternoon-card .stat-value.present { color: #28a745; }
+.afternoon-card .stat-value.late { color: #ffc107; }
+.afternoon-card .stat-value.absent { color: #dc3545; }
+.afternoon-card .stat-value.total { font-weight: bold;}
