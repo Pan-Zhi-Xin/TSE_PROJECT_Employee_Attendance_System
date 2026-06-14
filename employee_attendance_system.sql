@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jun 14, 2026 at 07:01 PM
+-- Generation Time: Jun 14, 2026 at 10:17 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.0.30
 
@@ -400,7 +400,7 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`user_id`, `email`, `password`, `name`, `role`, `profile_picture`, `status`, `last_login`, `created_at`, `updated_at`) VALUES
-(1, 'admin@gmail.com', '123', 'System Administrator', 'admin', NULL, 'Active', '2026-06-15 08:30:00', '2024-01-01 00:00:00', '2026-06-15 00:30:00'),
+(1, 'leeching2565@gmail.com', '123456789', 'System Administrator', 'admin', NULL, 'Active', '2026-06-15 08:30:00', '2024-01-01 00:00:00', '2026-06-14 20:16:21'),
 (2, 'zhixin@gmail.com', '123', 'Zhi Xin', 'employee', NULL, 'Active', '2026-06-15 08:44:00', '2024-01-15 00:00:00', '2026-06-15 00:44:00'),
 (3, 'celine@gmail.com', '123', 'Celine', 'employee', NULL, 'Active', '2026-06-15 08:56:00', '2024-02-01 00:00:00', '2026-06-15 00:56:00'),
 (4, 'yuxuan@gmail.com', '123', 'Yu Xuan', 'employee', NULL, 'Active', '2026-06-15 09:08:00', '2024-02-01 00:00:00', '2026-06-15 01:08:00'),
@@ -482,7 +482,7 @@ ALTER TABLE `employees`
 -- AUTO_INCREMENT for table `password_reset`
 --
 ALTER TABLE `password_reset`
-  MODIFY `reset_id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `reset_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `users`

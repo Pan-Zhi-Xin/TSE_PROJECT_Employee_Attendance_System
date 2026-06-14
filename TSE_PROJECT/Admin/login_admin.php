@@ -148,42 +148,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         .container {
             flex: 1;
             display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 40px 20px;
-            overflow: hidden;
-        }
-
-        .left-side {
-            flex: 1;
-            display: flex;
             justify-content: center;
             align-items: center;
+            padding: 20px;
         }
 
-        .left-side img {
-            max-width: 90%;
-            height: auto;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
-
-        .right-side {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .right-side-inner {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
+        .login-card {
             width: 100%;
             max-width: 450px;
+            background: rgba(255,255,255,0.95);
+            border-radius: 20px;
+            padding: 40px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
-
+    
         .frame h2 {
             text-align: center;
             color: #333;
@@ -320,39 +298,35 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </header>
 
     <section class="container">
-        <div class="left-side">
-            <img src="../image/Picture.png" alt="Attendance System" onerror="this.style.display='none'">
-        </div>
-        <div class="right-side">
-            <div class="right-side-inner">
-                <div class="frame">
-                    <h2>Admin Login</h2>
-                    <?php if (!empty($error)): ?>
-                        <div class="error-message"><?php echo htmlspecialchars($error); ?></div>
-                    <?php endif; ?>
-                    <form method="post" action="">
-                        <label>Email:</label>
-                        <input type="email" placeholder="admin@lockertech.com" name="email" value="<?php echo htmlspecialchars($email); ?>" required><br>
-    
-                        <label>Password:</label>
-                        <div class="wrapper">
-                            <div class="pass-field">
-                                <input type="password" placeholder="Enter your password" name="password" id="password" required>
-                                <i class="fa-solid fa-eye" id="show-password"></i>
-                            </div>
-                        </div>
+        <div class="login-card">
+            <div class="frame">
+                <h2>Admin Login</h2>
+                <?php if (!empty($error)): ?>
+                    <div class="error-message"><?php echo htmlspecialchars($error); ?></div>
+                <?php endif; ?>
+                <form method="post" action="">
+                    <label>Email:</label>
+                    <input type="email" placeholder="admin@lockertech.com" name="email" value="<?php echo htmlspecialchars($email); ?>" required><br>
 
-                        <button type="submit">Login</button>
-                    </form>
-                </div>
-        
-                <section class="bar">
-                    <div class="forgot_pass">
-                        <a href="forgot_pass_admin.php">Forgot password</a>
+                    <label>Password:</label>
+                    <div class="wrapper">
+                        <div class="pass-field">
+                            <input type="password" placeholder="Enter your password" name="password" id="password" required>
+                            <i class="fa-solid fa-eye" id="show-password"></i>
+                        </div>
                     </div>
-                </section>
+
+                    <button type="submit">Login</button>
+                </form>
             </div>
+        
+            <section class="bar">
+                <div class="forgot_pass">
+                    <a href="forgot_pass_admin.php">Forgot password</a>
+                </div>
+            </section>
         </div>
+    </div>
     </section>
 
     <script>
