@@ -20,11 +20,17 @@ $error_message = '';
 if($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_status'])) {
     $record_id = mysqli_real_escape_string($conn, $_POST['record_id']);
     $new_status = mysqli_real_escape_string($conn, $_POST['new_status']);
-    $reason = isset($_POST['reason']) ? mysqli_real_escape_string($conn, $_POST['reason']) : '';
+    $reason = isset($data['reason']) && trim($data['reason']) !== '' ? mysqli_real_escape_string($conn, trim($data['reason'])) : null;
     
+    if($reason === null) {
     $update_query = "UPDATE attendance_records 
-                     SET status = '$new_status', notes = '$reason' 
+                     SET status = '$new_status', notes = NULL 
                      WHERE record_id = '$record_id'";
+    } else {
+        $update_query = "UPDATE attendance_records 
+                        SET status = '$new_status', notes = '$reason' 
+                        WHERE record_id = '$record_id'";
+    }
     
     if(mysqli_query($conn, $update_query)) {
         $success_message = "Status updated to " . ucfirst($new_status) . "!";
@@ -42,11 +48,17 @@ if($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['bulk_update'])) {
         if(!isset($data['selected']) || $data['selected'] != 1) continue;
         
         $new_status = mysqli_real_escape_string($conn, $data['status']);
-        $reason = isset($data['reason']) ? mysqli_real_escape_string($conn, $data['reason']) : '';
+        $reason = isset($data['reason']) && trim($data['reason']) !== '' ? mysqli_real_escape_string($conn, trim($data['reason'])) : null;
         
-        $update_query = "UPDATE attendance_records 
-                         SET status = '$new_status', notes = '$reason' 
-                         WHERE record_id = '$record_id'";
+        if($reason === null) {
+            $update_query = "UPDATE attendance_records 
+                            SET status = '$new_status', notes = NULL 
+                            WHERE record_id = '$record_id'";
+        } else {
+            $update_query = "UPDATE attendance_records 
+                            SET status = '$new_status', notes = '$reason' 
+                            WHERE record_id = '$record_id'";
+        }
         
         if(mysqli_query($conn, $update_query)) {
             $updated_count++;
@@ -58,6 +70,28 @@ if($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['bulk_update'])) {
     } else {
         $error_message = "No records were selected for update.";
     }
+}
+
+// Display messages as JavaScript alerts and redirect after bulk update
+if(!empty($success_message) && isset($_POST['bulk_update'])) {
+    echo "<script>alert('" . addslashes($success_message) . "'); window.location.href = 'update_absent_status.php';</script>";
+    exit();
+}
+
+if(!empty($error_message) && isset($_POST['bulk_update'])) {
+    echo "<script>alert('" . addslashes($error_message) . "'); window.location.href = 'update_absent_status.php';</script>";
+    exit();
+}
+
+// Display messages as JavaScript alerts for individual update
+if(!empty($success_message) && isset($_POST['update_status'])) {
+    echo "<script>alert('" . addslashes($success_message) . "'); window.location.href = 'update_absent_status.php';</script>";
+    exit();
+}
+
+if(!empty($error_message) && isset($_POST['update_status'])) {
+    echo "<script>alert('" . addslashes($error_message) . "'); window.location.href = 'update_absent_status.php';</script>";
+    exit();
 }
 
 // Get all absent employees for today (both sessions)
@@ -90,7 +124,7 @@ while($row = mysqli_fetch_assoc($absent_result)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Update Absent Status</title>
+    <title>Update Absent Employee Status</title>
     <link rel="stylesheet" href="update_absent_status.css">
 </head>
 <body>
@@ -100,18 +134,6 @@ while($row = mysqli_fetch_assoc($absent_result)) {
             Update Absent Employee Status
         </div>
         <div class="card-body">            
-            <?php if($success_message): ?>
-                <div class="alert-success">
-                    ✓ <?php echo $success_message; ?>
-                </div>
-            <?php endif; ?>
-            
-            <?php if($error_message): ?>
-                <div class="alert-error">
-                    <?php echo $error_message; ?>
-                </div>
-            <?php endif; ?>
-            
             <div class="summary-box">
                 <div class="summary-item">
                     <h3 style="color: #007bff;"><?php echo $morning_absent; ?></h3>
@@ -121,7 +143,7 @@ while($row = mysqli_fetch_assoc($absent_result)) {
                     <h3 style="color: #fd7e14;"><?php echo $afternoon_absent; ?></h3>
                     <p>Afternoon Session</p>
                 </div>
-                <div class="summary-item">
+                <div class="summary-item-total">
                     <h3 style="color: #dc3545;"><?php echo count($absent_records); ?></h3>
                     <p>Total Absent</p>
                 </div>
@@ -130,20 +152,16 @@ while($row = mysqli_fetch_assoc($absent_result)) {
             <?php if(count($absent_records) > 0): ?>
             <form method="POST" action="" id="bulkForm">
                 <div class="bulk-actions">
-                    <div class="select-all">
-                        <input type="checkbox" id="selectAllCheckbox">
-                        <label for="selectAllCheckbox">Select All Records</label>
-                    </div>
-                    <div>
-                        <button type="submit" name="bulk_update" class="btn-update">Update</button>
-                    </div>
+                    <button type="submit" name="bulk_update" class="btn-update">Update Selected</button>
                 </div>
                 
                 <div class="table-responsive">
                     <table class="data-table">
                         <thead>
                             <tr>
-                                <th class="checkbox-col"></th>
+                                <th class="checkbox-col">
+                                    <input type="checkbox" id="selectAllCheckbox" class="select-all-checkbox" title="Select All">
+                                </th>
                                 <th>Emp Code</th>
                                 <th>Employee Name</th>
                                 <th>Department</th>
@@ -179,13 +197,6 @@ while($row = mysqli_fetch_assoc($absent_result)) {
                                 <td>
                                     <textarea name="updates[<?php echo $record['record_id']; ?>][reason]" class="reason-input" rows="2" placeholder="Optional: Enter reason..."></textarea>
                                 </td>
-                                <td>
-                                    <input type="hidden" name="record_id" value="<?php echo $record['record_id']; ?>">
-                                    <input type="hidden" name="session" value="<?php echo $record['session']; ?>">
-                                    <input type="hidden" name="new_status" id="new_status_<?php echo $record['record_id']; ?>">
-                                    <input type="hidden" name="reason" id="reason_<?php echo $record['record_id']; ?>">
-                                </td>
-                             </tr>
                             <?php endforeach; ?>
                         </tbody>
                     </table>
@@ -205,55 +216,40 @@ while($row = mysqli_fetch_assoc($absent_result)) {
 <script>
     const headerCheckbox = document.getElementById('selectAllCheckbox');
     const recordCheckboxes = document.querySelectorAll('.record-checkbox');
-    
+
     function updateSelectAll() {
-        const allChecked = Array.from(recordCheckboxes).every(cb => cb.checked);
-        if(headerCheckbox) headerCheckbox.checked = allChecked;
+        if (!headerCheckbox) return;
+        const allChecked = Array.from(recordCheckboxes).length > 0 && 
+                          Array.from(recordCheckboxes).every(cb => cb.checked);
+        headerCheckbox.checked = allChecked;
     }
-    
+
     function selectAll(checked) {
         recordCheckboxes.forEach(cb => {
             cb.checked = checked;
         });
         updateSelectAll();
     }
-    
-    if(headerCheckbox) {
+
+    if (headerCheckbox) {
         headerCheckbox.addEventListener('change', function() {
             selectAll(this.checked);
         });
     }
-    
+
     recordCheckboxes.forEach(cb => {
         cb.addEventListener('change', updateSelectAll);
     });
     
-    function prepareIndividualUpdate(btn) {
-        const row = btn.closest('tr');
-        const statusSelect = row.querySelector('.status-select');
-        const reasonTextarea = row.querySelector('.reason-input');
-        const recordId = row.querySelector('input[name="record_id"]').value;
-        
-        const newStatusInput = document.getElementById('new_status_' + recordId);
-        const reasonInput = document.getElementById('reason_' + recordId);
-        
-        if(newStatusInput) newStatusInput.value = statusSelect.value;
-        if(reasonInput) reasonInput.value = reasonTextarea.value;
-        
-        const checkbox = row.querySelector('.record-checkbox');
-        if(checkbox) checkbox.checked = true;
-        
-        document.querySelectorAll('.record-checkbox').forEach(cb => {
-            if(cb.closest('tr') !== row) {
-                cb.checked = false;
-            }
+    // Add animation when checkboxes are clicked
+    document.querySelectorAll('.record-checkbox, .select-all-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('click', function(e) {
+            this.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                this.style.transform = 'scale(1)';
+            }, 100);
         });
-        
-        updateSelectAll();
-        
-        // Submit the form
-        document.getElementById('bulkForm').submit();
-    }
+    });
 </script>
 </body>
 </html>

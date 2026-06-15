@@ -13,7 +13,6 @@ $afternoon_start = '13:00:00';
 $afternoon_end = '18:00:00';
 $current_time = date('H:i:s');
 
-// Function to auto-create missing session records
 function autoCreateSessionRecords($conn, $today_date, $current_time, $morning_end, $afternoon_end) {
     $morning_created = 0;
     $afternoon_created = 0;
@@ -57,22 +56,27 @@ function autoCreateSessionRecords($conn, $today_date, $current_time, $morning_en
     return ['morning' => $morning_created, 'afternoon' => $afternoon_created];
 }
 
-// Auto-create session records
+// Auto-create session records for ACTIVE employees only
 $created = autoCreateSessionRecords($conn, $today, $current_time, $morning_end, $afternoon_end);
 
-// Get statistics for today
-$emp_query = "SELECT COUNT(*) as total FROM employees";
+// Get statistics for today (only active employees)
+$emp_query = "SELECT COUNT(*) as total FROM employees e 
+              JOIN users u ON e.user_id = u.user_id 
+              WHERE u.role = 'employee' AND u.status = 'Active'";
 $emp_result = mysqli_query($conn, $emp_query);
 $total_employees = mysqli_fetch_assoc($emp_result)['total'];
 
-// Morning session stats
 $morning_present = 0;
 $morning_late = 0;
 $morning_absent = 0;
 $morning_half_day = 0;
 $morning_holiday = 0;
 
-$morning_stats = "SELECT status FROM attendance_records WHERE record_date = '$today' AND session = 'morning'";
+$morning_stats = "SELECT a.status FROM attendance_records a
+                  JOIN employees e ON a.employee_id = e.employee_id
+                  JOIN users u ON e.user_id = u.user_id
+                  WHERE a.record_date = '$today' AND a.session = 'morning'
+                  AND u.role = 'employee' AND u.status = 'Active'";
 $morning_result = mysqli_query($conn, $morning_stats);
 while($row = mysqli_fetch_assoc($morning_result)) {
     if($row['status'] == 'present') $morning_present++;
@@ -82,14 +86,18 @@ while($row = mysqli_fetch_assoc($morning_result)) {
     else $morning_absent++;
 }
 
-// Afternoon session stats
+// Afternoon session stats (only active employees)
 $afternoon_present = 0;
 $afternoon_late = 0;
 $afternoon_absent = 0;
 $afternoon_half_day = 0;
 $afternoon_holiday = 0;
 
-$afternoon_stats = "SELECT status FROM attendance_records WHERE record_date = '$today' AND session = 'afternoon'";
+$afternoon_stats = "SELECT a.status FROM attendance_records a
+                    JOIN employees e ON a.employee_id = e.employee_id
+                    JOIN users u ON e.user_id = u.user_id
+                    WHERE a.record_date = '$today' AND a.session = 'afternoon'
+                    AND u.role = 'employee' AND u.status = 'Active'";
 $afternoon_result = mysqli_query($conn, $afternoon_stats);
 while($row = mysqli_fetch_assoc($afternoon_result)) {
     if($row['status'] == 'present') $afternoon_present++;
@@ -99,7 +107,6 @@ while($row = mysqli_fetch_assoc($afternoon_result)) {
     else $afternoon_absent++;
 }
 
-// Get ALL employees with their attendance records for both sessions
 $employee_query = "SELECT u.name, e.employee_id, e.employee_code, e.department, e.position,
                           m.check_in_time as morning_in, m.check_out_time as morning_out, m.status as morning_status,
                           a.check_in_time as afternoon_in, a.check_out_time as afternoon_out, a.status as afternoon_status
@@ -107,7 +114,7 @@ $employee_query = "SELECT u.name, e.employee_id, e.employee_code, e.department, 
                    JOIN users u ON e.user_id = u.user_id
                    LEFT JOIN attendance_records m ON e.employee_id = m.employee_id AND m.record_date = '$today' AND m.session = 'morning'
                    LEFT JOIN attendance_records a ON e.employee_id = a.employee_id AND a.record_date = '$today' AND a.session = 'afternoon'
-                   WHERE u.role = 'employee'
+                   WHERE u.role = 'employee' AND u.status = 'Active'
                    ORDER BY u.name";
 $employee_result = mysqli_query($conn, $employee_query);
 
@@ -270,7 +277,7 @@ function getStatusBadge($status) {
                             <?php endwhile; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="10" class="text-center">No employees found</td
+                                <td colspan="10" class="text-center">No active employees found</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>

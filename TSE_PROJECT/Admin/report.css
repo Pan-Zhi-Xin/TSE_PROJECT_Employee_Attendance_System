@@ -68,7 +68,14 @@ body {
     border-color: #dc3545;
 }
 
-.btn-primary {
+.btn-group {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
+    width: 100%;
+}
+
+.btn-generate {
     background: #dc3545;
     color: white;
     border: none;
@@ -79,13 +86,8 @@ body {
     font-weight: bold;
 }
 
-.btn-primary:hover {
+.btn-generate:hover {
     background: #c82333;
-}
-
-.btn-group {
-    text-align: center;
-    margin-top: 10px;
 }
 
 .month-picker {

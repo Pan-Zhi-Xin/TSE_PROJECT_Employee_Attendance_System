@@ -97,7 +97,7 @@ while($row = mysqli_fetch_assoc($emp_result)) {
                     </div>
                 </div>
                 <div class="btn-group">
-                    <button type="submit" class="btn-primary">Generate Report</button>
+                    <button type="submit" class="btn-generate">Generate Report</button>
                 </div>
             </form>
         </div>
