@@ -43,7 +43,7 @@ CREATE TABLE `admins` (
 --
 
 INSERT INTO `admins` (`admin_id`, `user_id`, `admin_code`, `department`, `position`, `employment_date`, `contact_number`, `address`) VALUES
-(1, 1, 'ADMIN001', 'Administration', 'System Administrator', '2024-01-01', '+60123456788', 'Admin Office, Locker Tech HQ');
+(1, 1, 'ADMIN001', 'Administration', 'System Administrator', '2024-01-01', '0123456788', 'Admin Office, Locker Tech HQ');
 
 -- --------------------------------------------------------
 
@@ -58,7 +58,7 @@ CREATE TABLE `attendance_records` (
   `session` enum('morning','afternoon') NOT NULL,
   `check_in_time` datetime DEFAULT NULL,
   `check_out_time` datetime DEFAULT NULL,
-  `status` enum('present','late','absent','half_day','holiday','early_leave') DEFAULT 'absent',
+  `status` enum('present','late','absent','half_day','holiday','left_early') DEFAULT 'absent',
   `late_minutes` int(11) DEFAULT 0,
   `working_hours` decimal(5,2) DEFAULT 0.00,
   `notes` text DEFAULT NULL,
@@ -129,7 +129,7 @@ INSERT INTO `attendance_records` (`record_id`, `employee_id`, `record_date`, `se
 ('AFT20260602008', 8, '2026-06-02', 'afternoon', '2026-06-02 13:00:00', '2026-06-02 18:00:00', 'present', 0, 5.00, NULL, '2026-06-02 05:00:00', '2026-06-02 10:00:00'),
 ('AFT20260603001', 1, '2026-06-03', 'afternoon', '2026-06-03 13:00:00', '2026-06-03 18:00:00', 'present', 0, 5.00, NULL, '2026-06-03 05:00:00', '2026-06-03 10:00:00'),
 ('AFT20260603002', 2, '2026-06-03', 'afternoon', '2026-06-03 13:00:00', '2026-06-03 18:00:00', 'present', 0, 5.00, NULL, '2026-06-03 05:00:00', '2026-06-03 10:00:00'),
-('AFT20260603003', 3, '2026-06-03', 'afternoon', '2026-06-03 13:00:00', '2026-06-03 16:00:00', 'early_leave', 0, 4.00, 'Doctor appointment', '2026-06-03 05:00:00', '2026-06-14 16:56:54'),
+('AFT20260603003', 3, '2026-06-03', 'afternoon', '2026-06-03 13:00:00', '2026-06-03 16:00:00', 'left_early', 0, 4.00, 'Doctor appointment', '2026-06-03 05:00:00', '2026-06-14 16:56:54'),
 ('AFT20260603004', 4, '2026-06-03', 'afternoon', '2026-06-03 13:00:00', '2026-06-03 18:00:00', 'present', 0, 5.00, NULL, '2026-06-03 05:00:00', '2026-06-03 10:00:00'),
 ('AFT20260603005', 5, '2026-06-03', 'afternoon', '2026-06-03 13:00:00', '2026-06-03 18:00:00', 'present', 0, 5.00, NULL, '2026-06-03 05:00:00', '2026-06-03 10:00:00'),
 ('AFT20260603006', 6, '2026-06-03', 'afternoon', '2026-06-03 13:00:00', '2026-06-03 18:00:00', 'present', 0, 5.00, NULL, '2026-06-03 05:00:00', '2026-06-03 10:00:00'),
@@ -205,7 +205,7 @@ INSERT INTO `attendance_records` (`record_id`, `employee_id`, `record_date`, `se
 ('MNG20260525004', 4, '2026-05-25', 'morning', '2026-05-25 08:30:00', '2026-05-25 12:00:00', 'present', 0, 3.50, NULL, '2026-05-25 00:30:00', '2026-06-14 16:44:43'),
 ('MNG20260525005', 5, '2026-05-25', 'morning', '2026-05-25 08:45:00', '2026-05-25 12:00:00', 'present', 0, 3.25, NULL, '2026-05-25 00:45:00', '2026-05-25 04:00:00'),
 ('MNG20260525006', 6, '2026-05-25', 'morning', '2026-05-25 09:20:00', '2026-05-25 12:00:00', 'late', 20, 2.67, 'Woke up late', '2026-05-25 01:20:00', '2026-05-25 04:00:00'),
-('MNG20260525007', 7, '2026-05-25', 'morning', '2026-05-25 08:40:00', '2026-05-25 12:00:00', 'present', 0, 3.33, 'Early', '2026-05-25 00:40:00', '2026-05-25 04:00:00'),
+('MNG20260525007', 7, '2026-05-25', 'morning', '2026-05-25 08:40:00', '2026-05-25 12:00:00', 'present', 0, 3.33, NULL, '2026-05-25 00:40:00', '2026-05-25 04:00:00'),
 ('MNG20260525008', 8, '2026-05-25', 'morning', '2026-05-25 09:00:00', '2026-05-25 12:00:00', 'present', 0, 3.00, 'On time', '2026-05-25 01:00:00', '2026-05-25 04:00:00'),
 ('MNG20260526001', 1, '2026-05-26', 'morning', NULL, NULL, 'holiday', 0, 0.00, 'Wesak Day - Public Holiday', '2026-05-25 16:00:00', '2026-05-25 16:00:00'),
 ('MNG20260526002', 2, '2026-05-26', 'morning', NULL, NULL, 'holiday', 0, 0.00, 'Wesak Day - Public Holiday', '2026-05-25 16:00:00', '2026-05-25 16:00:00'),
@@ -342,23 +342,22 @@ CREATE TABLE `employees` (
   `position` varchar(100) NOT NULL,
   `employment_date` date NOT NULL,
   `contact_number` varchar(20) DEFAULT NULL,
-  `address` text DEFAULT NULL,
-  `qr_code` varchar(255) DEFAULT NULL
+  `address` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `employees`
 --
 
-INSERT INTO `employees` (`employee_id`, `user_id`, `employee_code`, `department`, `position`, `employment_date`, `contact_number`, `address`, `qr_code`) VALUES
-(1, 2, 'EMP001', 'IT Department', 'Software Developer', '2024-01-15', '0123456789', '123 Tech Park, Kuala Lumpur', NULL),
-(2, 3, 'EMP002', 'Finance Department', 'Finance Manager', '2024-02-01', '0123451111', '456 Finance Tower, Petaling Jaya', NULL),
-(3, 4, 'EMP003', 'Marketing Department', 'Marketing Manager', '2024-02-01', '0123452222', '789 Marketing Plaza, Kuala Lumpur', NULL),
-(4, 5, 'EMP004', 'Operations Department', 'Operations Manager', '2024-02-01', '0123453333', '321 Operations Hub, Shah Alam', NULL),
-(5, 6, 'EMP005', 'HR Department', 'HR Executive', '2024-03-01', '0123454444', '555 HR Tower, Petaling Jaya', NULL),
-(6, 7, 'EMP006', 'Sales Department', 'Sales Manager', '2024-03-15', '0123455555', '666 Sales Tower, Kuala Lumpur', NULL),
-(7, 8, 'EMP007', 'Customer Service', 'Customer Service Lead', '2024-04-01', '0123456666', '777 Service Center, Shah Alam', NULL),
-(8, 9, 'EMP008', 'Administration', 'Admin Executive', '2024-04-15', '0123457777', '888 Admin Building, Kuala Lumpur', NULL);
+INSERT INTO `employees` (`employee_id`, `user_id`, `employee_code`, `department`, `position`, `employment_date`, `contact_number`, `address`) VALUES
+(1, 2, 'EMP001', 'IT Department', 'Software Developer', '2024-01-15', '0123456789', '123 Tech Park, Kuala Lumpur'),
+(2, 3, 'EMP002', 'Finance Department', 'Finance Manager', '2024-02-01', '0123451111', '456 Finance Tower, Petaling Jaya'),
+(3, 4, 'EMP003', 'Marketing Department', 'Marketing Manager', '2024-02-01', '0123452222', '789 Marketing Plaza, Kuala Lumpur'),
+(4, 5, 'EMP004', 'Operations Department', 'Operations Manager', '2024-02-01', '0123453333', '321 Operations Hub, Shah Alam'),
+(5, 6, 'EMP005', 'HR Department', 'HR Executive', '2024-03-01', '0123454444', '555 HR Tower, Petaling Jaya'),
+(6, 7, 'EMP006', 'Sales Department', 'Sales Manager', '2024-03-15', '0123455555', '666 Sales Tower, Kuala Lumpur'),
+(7, 8, 'EMP007', 'Customer Service', 'Customer Service Lead', '2024-04-01', '0123456666', '777 Service Center, Shah Alam'),
+(8, 9, 'EMP008', 'Administration', 'Admin Executive', '2024-04-15', '0123457777', '888 Admin Building, Kuala Lumpur');
 
 -- --------------------------------------------------------
 
@@ -438,7 +437,6 @@ ALTER TABLE `employees`
   ADD PRIMARY KEY (`employee_id`),
   ADD UNIQUE KEY `user_id` (`user_id`),
   ADD UNIQUE KEY `employee_code` (`employee_code`),
-  ADD UNIQUE KEY `qr_code` (`qr_code`),
   ADD KEY `idx_employee_department` (`department`),
   ADD KEY `idx_employee_employment_date` (`employment_date`);
 
