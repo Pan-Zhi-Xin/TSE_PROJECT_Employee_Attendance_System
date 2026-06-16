@@ -41,8 +41,9 @@ function validatePosition($position) {
     if(empty($position)) {
         return "Position is required.";
     }
-    if(!preg_match("/^[a-zA-Z\s\-]+$/", $position)) {
-        return "Position can only contain letters, spaces, and hyphens.";
+    // Allow letters, numbers, spaces, hyphens, and forward slash
+    if(!preg_match("/^[a-zA-Z0-9\s\-\/]+$/", $position)) {
+        return "Position can only contain letters, numbers, spaces, -, and /.";
     }
     if(strlen($position) < 2) {
         return "Position must be at least 2 characters long.";
@@ -177,7 +178,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <label>Position <span class="required">*</span></label>
                             <input type="text" name="position" id="position" 
                                    value="<?php echo htmlspecialchars($employee['position']); ?>" 
-                                   placeholder="e.g., Software Engineer"
+                                   placeholder="e.g., Software Engineer III or UI/UX Designer"
                                    class="<?php echo $position_error ? 'error-field' : ''; ?>">
                             <div id="positionError" class="error-message"><?php echo $position_error; ?></div>
                         </div>
@@ -234,8 +235,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             document.getElementById('position').classList.add('error-field');
             isPositionValid = false;
             return false;
-        } else if (!/^[a-zA-Z\s\-]+$/.test(value)) {
-            errorDiv.innerHTML = "Position can only contain letters, spaces, and hyphens.";
+        } else if (!/^[a-zA-Z0-9\s\-\/]+$/.test(value)) {
+            errorDiv.innerHTML = "Position can only contain letters, numbers, spaces, -, and /.";
             document.getElementById('position').classList.add('error-field');
             isPositionValid = false;
             return false;

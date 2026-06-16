@@ -35,11 +35,11 @@ if(isset($_GET['activate']) && isset($_GET['id'])) {
 // Now include header after all redirects are processed
 include 'header_admin.php';
 
-// Get all employees - order by status (Active first, then Inactive)
+// Get all employees - order by status (Active first, then Inactive) and then by Employee Code (Descending)
 $query = "SELECT u.*, e.* FROM users u 
           JOIN employees e ON u.user_id = e.user_id 
           WHERE u.role = 'employee'
-          ORDER BY CASE WHEN u.status = 'Active' THEN 0 ELSE 1 END, u.name";
+          ORDER BY CASE WHEN u.status = 'Active' THEN 0 ELSE 1 END, e.employee_code DESC";
 $result = mysqli_query($conn, $query);
 
 $employees = [];

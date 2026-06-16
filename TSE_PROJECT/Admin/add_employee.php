@@ -48,9 +48,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['check_availability']))
         if (!filter_var($value, FILTER_VALIDATE_EMAIL)) {
             $is_valid_format = false;
             $error_message = "Invalid email format";
-        } elseif (!preg_match('/\.com$/', $value)) {
-            $is_valid_format = false;
-            $error_message = "Email must end with .com";
         } else {
             $sql = "SELECT email FROM users WHERE email = ?";
             $stmt = $conn->prepare($sql);
@@ -59,10 +56,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['check_availability']))
             $stmt->store_result();
             $exists = $stmt->num_rows > 0;
             $stmt->close();
+            
+            // Error message for duplicate email
+            if ($exists) {
+                $error_message = "This email address is already registered.";
+            }
         }
     } elseif ($type === 'phone') {
-        $clean_contact = preg_replace('/[\s\-\(\)\+]/', '', $value);
-        if (!preg_match("/^[0-9]{10,11}$/", $clean_contact)) {
+        // Remove special characters for checking
+        if (!preg_match("/^[0-9]{10,11}$/", $value)) {
             $is_valid_format = false;
             $error_message = "Phone must contain only numbers (10 or 11 digits)";
         } else {
@@ -73,6 +75,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['check_availability']))
             $stmt->store_result();
             $exists = $stmt->num_rows > 0;
             $stmt->close();
+            
+            // Error message for duplicate phone
+            if ($exists) {
+                $error_message = "This contact number is already registered.";
+            }
         }
     }
 
@@ -153,9 +160,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !isset($_POST['check_availability'])
         if(empty($contact)) {
             return "Contact number is required.";
         }
-        $clean_contact = preg_replace('/[\s\-\(\)\+]/', '', $contact);
-        if(!preg_match("/^[0-9]{10,11}$/", $clean_contact)) {
-            return "Contact number must contain only numbers (10 or 11 digits).";
+        // only digits, no special characters (e.g., 0112223333)
+        if(!preg_match("/^[0-9]{10,11}$/", $contact)) {
+            return "Contact number must contain only numbers (10 or 11 digits). No spaces, hyphens, or + signs allowed.";
         }
         return "";
     }
@@ -171,8 +178,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !isset($_POST['check_availability'])
         if(empty($position)) {
             return "Position is required.";
         }
-        if(!preg_match("/^[a-zA-Z\s\-]+$/", $position)) {
-            return "Position can only contain letters, spaces, and hyphens.";
+        // Allow letters, spaces, hyphens, forward slash, and numbers
+        if(!preg_match("/^[a-zA-Z0-9\s\-\/]+$/", $position)) {
+            return "Position can only contain letters, numbers, spaces, hyphens, and forward slash (/).";
         }
         if(strlen($position) < 2) {
             return "Position must be at least 2 characters long.";
@@ -226,8 +234,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !isset($_POST['check_availability'])
     if(empty($email_error)) {
         if(!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $email_error = "Please enter a valid email address (e.g., email@domain.com).";
-        } elseif(!preg_match('/\.com$/', $email)) {
-            $email_error = "Email must end with .com";
         }
     }
     
@@ -262,7 +268,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !isset($_POST['check_availability'])
                     $mail->Password = 'hfhy trka fwrs grzt';
                     $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
                     $mail->Port = 587;
-                    
+                    $mail->CharSet = 'UTF-8';
                     $mail->setFrom('panzhixin7256@gmail.com', 'Locker Tech Attendance System');
                     $mail->addAddress($email, $name);
                     
@@ -399,8 +405,8 @@ $today_date = date('Y-m-d');
                         <div class="form-group">
                             <label>Position <span class="required">*</span></label>
                             <input type="text" name="position" id="position" 
-                                   value="<?php echo isset($_POST['position']) ? htmlspecialchars($_POST['position']) : ''; ?>" 
-                                   placeholder="e.g., Software Engineer" required>
+                                value="<?php echo isset($_POST['position']) ? htmlspecialchars($_POST['position']) : ''; ?>" 
+                                placeholder="e.g., Software Engineer III or UI/UX Designer" required>
                             <div id="positionError" class="error-message"><?php echo $position_error; ?></div>
                         </div>
                         
@@ -507,14 +513,13 @@ $today_date = date('Y-m-d');
     function validateContact() {
         const value = document.getElementById('contactNumber').value;
         const errorDiv = document.getElementById('contactError');
-        const cleanValue = value.replace(/[\s\-\(\)\+]/g, '');
         
         if (!value) {
             errorDiv.innerHTML = "Contact number is required.";
             isPhoneAvailable = false;
             return false;
-        } else if (!/^[0-9]{10,11}$/.test(cleanValue)) {
-            errorDiv.innerHTML = "Contact number must contain only numbers (10 or 11 digits).";
+        } else if (!/^[0-9]{10,11}$/.test(value)) {
+            errorDiv.innerHTML = "Contact number must contain only numbers (10 or 11 digits). No spaces & special characters allowed.";
             isPhoneAvailable = false;
             return false;
         } else {
@@ -535,10 +540,6 @@ $today_date = date('Y-m-d');
             return false;
         } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
             errorDiv.innerHTML = "Please enter a valid email address (e.g., email@domain.com).";
-            isEmailAvailable = false;
-            return false;
-        } else if (!/\.com$/.test(value)) {
-            errorDiv.innerHTML = "Email must end with .com";
             isEmailAvailable = false;
             return false;
         } else {
@@ -569,8 +570,8 @@ $today_date = date('Y-m-d');
         if (!value) {
             errorDiv.innerHTML = "Position is required.";
             return false;
-        } else if (!/^[a-zA-Z\s\-]+$/.test(value)) {
-            errorDiv.innerHTML = "Position can only contain letters, spaces, and hyphens.";
+        } else if (!/^[a-zA-Z0-9\s\-\/]+$/.test(value)) {
+            errorDiv.innerHTML = "Position can only contain letters, numbers, spaces, -, and /.";
             return false;
         } else if (value.length < 2) {
             errorDiv.innerHTML = "Position must be at least 2 characters.";
