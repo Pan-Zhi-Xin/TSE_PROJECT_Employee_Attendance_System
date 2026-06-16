@@ -220,8 +220,8 @@ $show_back_button = ($current_page != 'dashboard.php');
             <div class="header-right">
                 <nav>
                     <ul>
+                        <li><a href="dashboard.php">Home</a></li>
                         <li><a href="reason.php">Reason</a></li>
-                        <li><a href="dashboard.php">Dashboard</a></li>
                         <li><a href="attendance.php">Attendance</a></li>
                     </ul>
                 </nav>
