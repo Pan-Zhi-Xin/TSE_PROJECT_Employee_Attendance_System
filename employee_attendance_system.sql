@@ -34,8 +34,8 @@ CREATE TABLE `admins` (
   `department` varchar(100) NOT NULL,
   `position` varchar(100) NOT NULL,
   `employment_date` date NOT NULL,
-  `contact_number` varchar(20) DEFAULT NULL,
-  `address` text DEFAULT NULL
+  `contact_number` varchar(20) NOT NULL,
+  `address` text NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -341,8 +341,8 @@ CREATE TABLE `employees` (
   `department` varchar(100) NOT NULL,
   `position` varchar(100) NOT NULL,
   `employment_date` date NOT NULL,
-  `contact_number` varchar(20) DEFAULT NULL,
-  `address` text DEFAULT NULL
+  `contact_number` varchar(20) NOT NULL,
+  `address` text NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -367,10 +367,10 @@ INSERT INTO `employees` (`employee_id`, `user_id`, `employee_code`, `department`
 
 CREATE TABLE `password_reset` (
   `reset_id` int(11) NOT NULL,
-  `user_id` int(11) DEFAULT NULL,
-  `email` varchar(100) DEFAULT NULL,
-  `token` varchar(255) DEFAULT NULL,
-  `expires_at` datetime DEFAULT NULL,
+  `user_id` int(11) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `token` varchar(255) NOT NULL,
+  `expires_at` datetime NOT NULL,
   `is_used` enum('Active','Used','Expired') DEFAULT 'Active',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -389,7 +389,6 @@ CREATE TABLE `users` (
   `role` enum('employee','admin') NOT NULL,
   `profile_picture` varchar(255) DEFAULT NULL,
   `status` enum('Active','Inactive') DEFAULT 'Active',
-  `last_login` datetime DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -398,16 +397,16 @@ CREATE TABLE `users` (
 -- Dumping data for table `users`
 --
 
-INSERT INTO `users` (`user_id`, `email`, `password`, `name`, `role`, `profile_picture`, `status`, `last_login`, `created_at`, `updated_at`) VALUES
-(1, 'leeching2565@gmail.com', '123456789', 'System Administrator', 'admin', NULL, 'Active', '2026-06-15 08:30:00', '2024-01-01 00:00:00', '2026-06-14 20:16:21'),
-(2, 'zhixin@gmail.com', '123', 'Zhi Xin', 'employee', NULL, 'Active', '2026-06-15 08:44:00', '2024-01-15 00:00:00', '2026-06-15 00:44:00'),
-(3, 'celine@gmail.com', '123', 'Celine', 'employee', NULL, 'Active', '2026-06-15 08:56:00', '2024-02-01 00:00:00', '2026-06-15 00:56:00'),
-(4, 'yuxuan@gmail.com', '123', 'Yu Xuan', 'employee', NULL, 'Active', '2026-06-15 09:08:00', '2024-02-01 00:00:00', '2026-06-15 01:08:00'),
-(5, 'xuanting@gmail.com', '123', 'Xuan Ting', 'employee', NULL, 'Active', '2026-06-15 08:22:00', '2024-02-01 00:00:00', '2026-06-15 00:22:00'),
-(6, 'weiheng@gmail.com', '123', 'Wei Heng', 'employee', NULL, 'Active', '2026-06-15 08:52:00', '2024-03-01 00:00:00', '2026-06-15 00:52:00'),
-(7, 'jingwen@gmail.com', '123', 'Jing Wen', 'employee', NULL, 'Active', '2026-06-15 08:48:00', '2024-03-15 00:00:00', '2026-06-15 00:48:00'),
-(8, 'peiyee@gmail.com', '123', 'Pei Yee', 'employee', NULL, 'Active', '2026-06-15 08:35:00', '2024-04-01 00:00:00', '2026-06-15 00:35:00'),
-(9, 'kahjun@gmail.com', '123', 'Kah Jun', 'employee', NULL, 'Active', '2026-06-15 09:02:00', '2024-04-15 00:00:00', '2026-06-15 01:02:00');
+INSERT INTO `users` (`user_id`, `email`, `password`, `name`, `role`, `profile_picture`, `status`, `created_at`, `updated_at`) VALUES
+(1, 'leeching2565@gmail.com', '123456789', 'System Administrator', 'admin', NULL, 'Active', '2024-01-01 00:00:00', '2026-06-14 20:16:21'),
+(2, 'zhixin@gmail.com', '123', 'Zhi Xin', 'employee', NULL, 'Active', '2026-06-15 08:44:00', '2026-06-15 00:44:00'),
+(3, 'celine@gmail.com', '123', 'Celine', 'employee', NULL, 'Active', '2026-06-15 08:56:00', '2026-06-15 00:56:00'),
+(4, 'yuxuan@gmail.com', '123', 'Yu Xuan', 'employee', NULL, 'Active', '2026-06-15 09:08:00', '2026-06-15 01:08:00'),
+(5, 'xuanting@gmail.com', '123', 'Xuan Ting', 'employee', NULL, 'Active', '2026-06-15 08:22:00', '2026-06-15 00:22:00'),
+(6, 'weiheng@gmail.com', '123', 'Wei Heng', 'employee', NULL, 'Active', '2026-06-15 08:52:00', '2026-06-15 00:52:00'),
+(7, 'jingwen@gmail.com', '123', 'Jing Wen', 'employee', NULL, 'Active', '2026-06-15 08:48:00', '2026-06-15 00:48:00'),
+(8, 'peiyee@gmail.com', '123', 'Pei Yee', 'employee', NULL, 'Active', '2026-06-15 08:35:00', '2026-06-15 00:35:00'),
+(9, 'kahjun@gmail.com', '123', 'Kah Jun', 'employee', NULL, 'Active', '2026-06-15 09:02:00', '2026-06-15 01:02:00');
 
 --
 -- Indexes for dumped tables
@@ -480,7 +479,7 @@ ALTER TABLE `employees`
 -- AUTO_INCREMENT for table `password_reset`
 --
 ALTER TABLE `password_reset`
-  MODIFY `reset_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `reset_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 --
 -- AUTO_INCREMENT for table `users`
