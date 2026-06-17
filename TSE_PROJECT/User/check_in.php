@@ -18,11 +18,12 @@ $current_hour_only = date('H:i:s');
 // Session times
 $morning_start = '09:00:00';
 $morning_end = '12:00:00';
+$morning_earliest = '08:00:00'; 
 $afternoon_start = '13:00:00';
 $afternoon_end = '18:00:00';
 
 // Determine which session to check in for based on current time
-if($current_hour_only >= $morning_start && $current_hour_only < $morning_end) {
+if($current_hour_only >= $morning_earliest && $current_hour_only < $morning_end) {
     $session = 'morning';
     $session_name = "Morning Session";
     $work_start_time = $morning_start;
@@ -32,6 +33,11 @@ if($current_hour_only >= $morning_start && $current_hour_only < $morning_end) {
     $session_name = "Afternoon Session";
     $work_start_time = $afternoon_start;
     $record_prefix = 'AFT';
+}elseif($current_hour_only < $morning_earliest) {
+    // before 08:00
+    $_SESSION['error'] = "Check-in for Morning Session starts at 08:00. Please wait.";
+    header("Location: dashboard.php");
+    exit();
 } else {
     $_SESSION['error'] = "Check-in is only allowed during session hours (9:00-12:00 or 13:00-18:00)";
     header("Location: dashboard.php");
