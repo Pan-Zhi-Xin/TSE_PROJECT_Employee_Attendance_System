@@ -22,17 +22,22 @@ $morning_earliest = '08:00:00';
 $afternoon_start = '13:00:00';
 $afternoon_end = '18:00:00';
 
+function generateRecordId($session, $employee_id) {
+    $prefix = ($session == 'morning') ? 'MNG' : 'AFT';
+    $date = date('Ymd');
+    $padded_id = str_pad($employee_id, 3, '0', STR_PAD_LEFT);
+    return $prefix . $date . $padded_id;
+}
+
 // Determine which session to check in for based on current time
 if($current_hour_only >= $morning_earliest && $current_hour_only < $morning_end) {
     $session = 'morning';
     $session_name = "Morning Session";
     $work_start_time = $morning_start;
-    $record_prefix = 'MNG';
 } elseif($current_hour_only >= $afternoon_start && $current_hour_only < $afternoon_end) {
     $session = 'afternoon';
     $session_name = "Afternoon Session";
     $work_start_time = $afternoon_start;
-    $record_prefix = 'AFT';
 }elseif($current_hour_only < $morning_earliest) {
     // before 08:00
     $_SESSION['error'] = "Check-in for Morning Session starts at 08:00. Please wait.";
@@ -76,8 +81,7 @@ if($existing_record) {
               SET check_in_time = '$current_time', status = '$status', late_minutes = '$late_minutes' 
               WHERE employee_id = '$employee_id' AND record_date = '$today' AND session = '$session'";
 } else {
-    // Insert new record
-    $record_id = $record_prefix . date('YmdHis') . rand(100, 999);
+    $record_id = generateRecordId($session, $employee_id);
     $query = "INSERT INTO attendance_records (record_id, employee_id, record_date, session, check_in_time, status, late_minutes) 
               VALUES ('$record_id', '$employee_id', '$today', '$session', '$current_time', '$status', '$late_minutes')";
 }

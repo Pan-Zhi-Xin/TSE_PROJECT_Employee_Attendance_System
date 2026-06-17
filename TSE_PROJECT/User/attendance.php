@@ -88,6 +88,7 @@ function getSessionStatus($check_in_time, $check_out_time, $session, $db_status)
     if($db_status == 'holiday') return 'holiday';
     if($db_status == 'left_early') return 'left_early';
     if($db_status == 'absent') return 'absent';
+    if($db_status == 'late_early') return 'late_early'; 
     
     if(!$check_in_time) return 'absent';
     
@@ -160,6 +161,7 @@ foreach($daily_data as $date => $day) {
             // Morning status counters
             'morning_present' => 0, 
             'morning_late' => 0, 
+            'morning_late_early' => 0,
             'morning_half_day' => 0, 
             'morning_holiday' => 0,
             'morning_left_early' => 0,
@@ -167,6 +169,7 @@ foreach($daily_data as $date => $day) {
             // Afternoon status counters
             'afternoon_present' => 0, 
             'afternoon_late' => 0, 
+            'afternoon_late_early' => 0,
             'afternoon_half_day' => 0, 
             'afternoon_holiday' => 0,
             'afternoon_left_early' => 0,
@@ -184,6 +187,7 @@ foreach($daily_data as $date => $day) {
         switch($status) {
             case 'present': $monthly_data[$month_key]['morning_present']++; break;
             case 'late': $monthly_data[$month_key]['morning_late']++; break;
+            case 'late_early': $monthly_data[$month_key]['morning_late_early']++; break; 
             case 'half_day': $monthly_data[$month_key]['morning_half_day']++; break;
             case 'holiday': $monthly_data[$month_key]['morning_holiday']++; break;
             case 'left_early': $monthly_data[$month_key]['morning_left_early']++; break;
@@ -202,6 +206,7 @@ foreach($daily_data as $date => $day) {
         switch($status) {
             case 'present': $monthly_data[$month_key]['afternoon_present']++; break;
             case 'late': $monthly_data[$month_key]['afternoon_late']++; break;
+            case 'late_early': $monthly_data[$month_key]['afternoon_late_early']++; break;
             case 'half_day': $monthly_data[$month_key]['afternoon_half_day']++; break;
             case 'holiday': $monthly_data[$month_key]['afternoon_holiday']++; break;
             case 'left_early': $monthly_data[$month_key]['afternoon_left_early']++; break;
@@ -291,6 +296,7 @@ foreach($daily_data as $date => $day) {
         
         .stat-number.present { color: #28a745; }
         .stat-number.late { color: #ffc107; }
+        .stat-number.late-early { color: #e67e22; }
         .stat-number.half-day { color: #6f42c1; }
         .stat-number.holiday { color: #007bff; }
         .stat-number.early-left { color: #fd7e14; }
@@ -365,6 +371,7 @@ foreach($daily_data as $date => $day) {
         
         .badge-present { background: #28a745; color: white; }
         .badge-late { background: #ffc107; color: #333; }
+        .badge-late-early { background: #e67e22; color: white; }
         .badge-half-day { background: #6f42c1; color: white; }
         .badge-holiday { background: #007bff; color: white; }
         .badge-early-left { background: #fd7e14; color: white; }
@@ -430,7 +437,11 @@ foreach($daily_data as $date => $day) {
                     </div>
                     <div class="stat-box">
                         <div class="stat-number early-left"><?php echo $month['morning_left_early'] + $month['afternoon_left_early']; ?></div>
-                        <div class="stat-label">Left Early</div>
+                        <div class="stat-label">Early Left</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number late-early"><?php echo $month['morning_late_early'] + $month['afternoon_late_early']; ?></div>
+                        <div class="stat-label">Late + Early</div>
                     </div>
                     <div class="stat-box">
                         <div class="stat-number half-day"><?php echo $month['morning_half_day'] + $month['afternoon_half_day']; ?></div>

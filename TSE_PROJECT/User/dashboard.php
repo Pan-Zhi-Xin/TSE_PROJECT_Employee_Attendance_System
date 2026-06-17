@@ -82,6 +82,7 @@ function calculateLateMinutes($check_in_time, $session) {
 
 function getSessionStatus($check_in_time, $check_out_time, $session) {
     global $work_start_time_morning, $work_start_time_afternoon, $work_end_time_morning, $work_end_time_afternoon;
+    
     if(!$check_in_time) return 'absent';
     
     $work_start = ($session == 'morning') ? $work_start_time_morning : $work_start_time_afternoon;
@@ -94,9 +95,15 @@ function getSessionStatus($check_in_time, $check_out_time, $session) {
         $check_out_only = date('H:i:s', strtotime($check_out_time));
         $is_early = ($check_out_only < $work_end);
         
-        if($is_late && $is_early) return 'late_early';
-        if($is_late) return 'late';
-        if($is_early) return 'early_leave';
+        if($is_late && $is_early) {
+            return 'late_early';
+        }
+        if($is_late) {
+            return 'late';
+        }
+        if($is_early) {
+            return 'left_early';
+        }
         return 'present';
     }
     
