@@ -92,61 +92,195 @@ if (isset($_POST['send_otp'])) {
 <html>
 <head>
     <title>Forgot Password</title>
+    <script src="https://kit.fontawesome.com/c2f7d169d6.js" crossorigin="anonymous"></script>
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f7ff;
+        *{
+            margin:0;
+            padding:0;
+            box-sizing:border-box;
         }
-        .container {
-            width: 400px;
-            margin: 80px auto;
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+
+        body{
+            font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height:100vh;
+            background: linear-gradient(135deg, #f4f4f4 0%, #f4f4f4 100%);
+            display:flex;
+            flex-direction:column;
         }
-        h2 {
-            text-align: center;
-            margin-bottom: 20px;
+
+        header{
+            background:#fff;
+            padding:15px 40px;
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            box-shadow:0 2px 15px rgba(0,0,0,0.08);
+            z-index:10;
         }
-        input {
-            width: 100%;
-            padding: 12px;
-            margin-top: 10px;
-            margin-bottom: 20px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            box-sizing: border-box;
+
+        .logo img{
+            height:60px;
+            width:auto;
         }
-        button {
-            width: 100%;
-            padding: 12px;
-            background: #5170ff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
+
+        .home a{
+            text-decoration:none;
+            color:#333;
+            display:flex;
+            align-items:center;
+            gap:10px;
+            font-weight:600;
+            transition:0.3s;
         }
-        button:hover {
-            opacity: 0.9;
+
+        .home a:hover{
+            color:#5170ff;
         }
-        .message {
-            text-align: center;
-            margin-bottom: 15px;
-            color: red;
+
+        .home i{
+            font-size:22px;
         }
-        .back {
-            margin-top: 20px;
-            text-align: center;
+
+        .home h2{
+            font-size:16px;
+            margin:0;
         }
-        .back a {
-            text-decoration: none;
-            color: #5170ff;
+
+        .container{
+            width:100%;
+            max-width:450px;
+            margin:auto;
+            background:#fff;
+            padding:40px;
+            border-radius:20px;
+            box-shadow:0 15px 40px rgba(0,0,0,0.15);
+            animation:fadeIn 0.4s ease;
+        }
+
+        .container h2{
+            text-align:center;
+            color:#333;
+            margin-bottom:10px;
+            font-size:28px;
+        }
+
+        .subtitle{
+            text-align:center;
+            color:#777;
+            margin-bottom:30px;
+            font-size:14px;
+        }
+
+        label{
+            display:block;
+            margin-bottom:8px;
+            font-weight:600;
+            color:#444;
+        }
+
+        input{
+            width:100%;
+            padding:14px 16px;
+            border:2px solid #e5e7eb;
+            border-radius:12px;
+            font-size:15px;
+            transition:0.3s;
+            outline:none;
+            margin-bottom:20px;
+        }
+
+        input:focus{
+            border-color:#5170ff;
+            box-shadow:0 0 0 4px rgba(81,112,255,0.15);
+        }
+
+        button{
+            width:100%;
+            padding:14px;
+            border:none;
+            border-radius:12px;
+            background:linear-gradient(135deg,#5170ff,#7b61ff);
+            color:#fff;
+            font-size:16px;
+            font-weight:600;
+            cursor:pointer;
+            transition:0.3s;
+        }
+
+        button:hover{
+            transform:translateY(-2px);
+            box-shadow:0 10px 25px rgba(81,112,255,0.35);
+        }
+
+        button:active{
+            transform:translateY(0);
+        }
+
+        .message{
+            background:#fff3f3;
+            color:#dc2626;
+            border:1px solid #fecaca;
+            padding:12px;
+            border-radius:10px;
+            text-align:center;
+            margin-bottom:20px;
+            font-size:14px;
+        }
+
+        .back{
+            text-align:center;
+            margin-top:20px;
+        }
+
+        .back a{
+            color:#5170ff;
+            text-decoration:none;
+            font-weight:600;
+            transition:0.3s;
+        }
+
+        .back a:hover{
+            color:#3b57d1;
+            text-decoration:underline;
+        }
+
+        @keyframes fadeIn{
+            from{
+                opacity:0;
+                transform:translateY(20px);
+            }
+            to{
+                opacity:1;
+                transform:translateY(0);
+            }
+        }
+
+        @media(max-width:500px){
+            .container{
+                margin:30px 15px;
+                padding:30px 25px;
+            }
+
+            header{
+                padding:15px 20px;
+            }
+
+            .logo img{
+                height:50px;
+            }
         }
     </style>
 </head>
 <body>
+<header>
+        <div class="logo">
+            <img src="../logo.png" alt="Locker Tech Logo" onerror="this.style.display='none'">
+        </div>
+        <div class="home">
+            <a href="../index.php"><i class="fa-solid fa-house"></i><h2>HOME</h2></a>
+        </div>
+</header>
+
 <div class="container">
     <h2>Forgot Password</h2>
 
