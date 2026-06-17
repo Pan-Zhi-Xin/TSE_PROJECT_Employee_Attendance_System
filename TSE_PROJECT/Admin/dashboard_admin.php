@@ -13,9 +13,17 @@ $afternoon_start = '13:00:00';
 $afternoon_end = '18:00:00';
 $current_time = date('H:i:s');
 
-function autoCreateSessionRecords($conn, $today_date, $current_time, $morning_end, $afternoon_end) {
+// ========== AUTO-CREATE ABSENT RECORDS AFTER SESSION ENDS ==========
+function autoCreateAbsentRecords($conn, $today_date, $current_time, $morning_end, $afternoon_end) {
     $morning_created = 0;
     $afternoon_created = 0;
+    
+    $create_morning_absent = ($current_time > $morning_end);
+    $create_afternoon_absent = ($current_time > $afternoon_end);
+    
+    if (!$create_morning_absent && !$create_afternoon_absent) {
+        return ['morning' => 0, 'afternoon' => 0];
+    }
     
     $emp_query = "SELECT e.employee_id, e.employee_code 
                   FROM employees e 
@@ -26,52 +34,39 @@ function autoCreateSessionRecords($conn, $today_date, $current_time, $morning_en
     while($emp = mysqli_fetch_assoc($emp_result)) {
         $employee_id = $emp['employee_id'];
         
-        $check_morning = "SELECT * FROM attendance_records 
-                          WHERE employee_id = '$employee_id' AND record_date = '$today_date' AND session = 'morning'";
-        $morning_result = mysqli_query($conn, $check_morning);
-        
-        if(mysqli_num_rows($morning_result) == 0) {
-            $record_id = 'MNG' . date('Ymd') . str_pad($employee_id, 3, '0', STR_PAD_LEFT);
-            $insert_query = "INSERT INTO attendance_records (record_id, employee_id, record_date, session, status) 
-                             VALUES ('$record_id', '$employee_id', '$today_date', 'morning', 'absent')";
-            if(mysqli_query($conn, $insert_query)) {
-                $morning_created++;
+        if ($create_morning_absent) {
+            $check_morning = "SELECT * FROM attendance_records 
+                              WHERE employee_id = '$employee_id' AND record_date = '$today_date' AND session = 'morning'";
+            $morning_result = mysqli_query($conn, $check_morning);
+            if(mysqli_num_rows($morning_result) == 0) {
+                $record_id = 'MNG' . date('Ymd') . str_pad($employee_id, 3, '0', STR_PAD_LEFT);
+                $insert_query = "INSERT INTO attendance_records (record_id, employee_id, record_date, session, status) 
+                                 VALUES ('$record_id', '$employee_id', '$today_date', 'morning', 'absent')";
+                if(mysqli_query($conn, $insert_query)) $morning_created++;
             }
         }
         
-        $check_afternoon = "SELECT * FROM attendance_records 
-                            WHERE employee_id = '$employee_id' AND record_date = '$today_date' AND session = 'afternoon'";
-        $afternoon_result = mysqli_query($conn, $check_afternoon);
-        
-        if(mysqli_num_rows($afternoon_result) == 0) {
-            $record_id = 'AFT' . date('Ymd') . str_pad($employee_id, 3, '0', STR_PAD_LEFT);
-            $insert_query = "INSERT INTO attendance_records (record_id, employee_id, record_date, session, status) 
-                             VALUES ('$record_id', '$employee_id', '$today_date', 'afternoon', 'absent')";
-            if(mysqli_query($conn, $insert_query)) {
-                $afternoon_created++;
+        if ($create_afternoon_absent) {
+            $check_afternoon = "SELECT * FROM attendance_records 
+                                WHERE employee_id = '$employee_id' AND record_date = '$today_date' AND session = 'afternoon'";
+            $afternoon_result = mysqli_query($conn, $check_afternoon);
+            if(mysqli_num_rows($afternoon_result) == 0) {
+                $record_id = 'AFT' . date('Ymd') . str_pad($employee_id, 3, '0', STR_PAD_LEFT);
+                $insert_query = "INSERT INTO attendance_records (record_id, employee_id, record_date, session, status) 
+                                 VALUES ('$record_id', '$employee_id', '$today_date', 'afternoon', 'absent')";
+                if(mysqli_query($conn, $insert_query)) $afternoon_created++;
             }
         }
     }
-    
     return ['morning' => $morning_created, 'afternoon' => $afternoon_created];
 }
 
-// Auto-create session records for ACTIVE employees only
-$created = autoCreateSessionRecords($conn, $today, $current_time, $morning_end, $afternoon_end);
+$created = autoCreateAbsentRecords($conn, $today, $current_time, $morning_end, $afternoon_end);
 
-// Get statistics for today (only active employees)
-$emp_query = "SELECT COUNT(*) as total FROM employees e 
-              JOIN users u ON e.user_id = u.user_id 
-              WHERE u.role = 'employee' AND u.status = 'Active'";
-$emp_result = mysqli_query($conn, $emp_query);
-$total_employees = mysqli_fetch_assoc($emp_result)['total'];
-
-$morning_present = 0;
-$morning_late = 0;
-$morning_absent = 0;
-$morning_half_day = 0;
-$morning_holiday = 0;
-$morning_left_early = 0;
+// --------------------------------------------------------------
+// 1) MORNING STATISTICS
+// --------------------------------------------------------------
+$morning_present = $morning_late = $morning_absent = $morning_half_day = $morning_holiday = $morning_left_early = $morning_late_early = 0;
 
 $morning_stats = "SELECT a.status, a.check_out_time, a.check_in_time, a.late_minutes 
                   FROM attendance_records a
@@ -80,22 +75,16 @@ $morning_stats = "SELECT a.status, a.check_out_time, a.check_in_time, a.late_min
                   WHERE a.record_date = '$today' AND a.session = 'morning'
                   AND u.role = 'employee' AND u.status = 'Active'";
 $morning_result = mysqli_query($conn, $morning_stats);
-
-// Check if query failed
-if(!$morning_result) {
-    $morning_result = [];
-    $morning_present = $morning_late = $morning_absent = $morning_half_day = $morning_holiday = $morning_left_early = 0;
-} else {
+if($morning_result) {
     while($row = mysqli_fetch_assoc($morning_result)) {
         $status = $row['status'];
-        // Check for left early (if checked out before session end)
         $check_out = $row['check_out_time'];
-        $is_early = false;
-        if($check_out && $check_out < $morning_end) {
-            $is_early = true;
-        }
+        $is_early = ($check_out && $check_out < $morning_end);
         
-        if($is_early && ($status == 'present' || $status == 'late')) {
+        if($status == 'late_early') {
+            $morning_late_early++;
+        }
+        elseif($is_early && ($status == 'present' || $status == 'late')) {
             $morning_left_early++;
         } elseif($status == 'present') {
             $morning_present++;
@@ -107,44 +96,18 @@ if(!$morning_result) {
             $morning_holiday++;
         } elseif($status == 'left_early') {
             $morning_left_early++;
+        } elseif($status == 'absent' || $status == '') {
+            $morning_absent++;
         } else {
             $morning_absent++;
         }
     }
 }
-while($row = mysqli_fetch_assoc($morning_result)) {
-    $status = $row['status'];
-    // Check for left early (if checked out before session end)
-    $check_out = $row['check_out_time'];
-    $is_early = false;
-    if($check_out && $check_out < $morning_end) {
-        $is_early = true;
-    }
-    
-    if($is_early && ($status == 'present' || $status == 'late')) {
-        $morning_left_early++;
-    } elseif($status == 'present') {
-        $morning_present++;
-    } elseif($status == 'late') {
-        $morning_late++;
-    } elseif($status == 'half_day') {
-        $morning_half_day++;
-    } elseif($status == 'holiday') {
-        $morning_holiday++;
-    } elseif($status == 'left_early') {
-        $morning_left_early++;
-    } else {
-        $morning_absent++;
-    }
-}
 
-// Afternoon session stats (only active employees)
-$afternoon_present = 0;
-$afternoon_late = 0;
-$afternoon_absent = 0;
-$afternoon_half_day = 0;
-$afternoon_holiday = 0;
-$afternoon_left_early = 0;
+// --------------------------------------------------------------
+// 2) AFTERNOON STATISTICS
+// --------------------------------------------------------------
+$afternoon_present = $afternoon_late = $afternoon_absent = $afternoon_half_day = $afternoon_holiday = $afternoon_left_early = $afternoon_late_early = 0;
 
 $afternoon_stats = "SELECT a.status, a.check_out_time, a.check_in_time, a.late_minutes 
                     FROM attendance_records a
@@ -153,22 +116,16 @@ $afternoon_stats = "SELECT a.status, a.check_out_time, a.check_in_time, a.late_m
                     WHERE a.record_date = '$today' AND a.session = 'afternoon'
                     AND u.role = 'employee' AND u.status = 'Active'";
 $afternoon_result = mysqli_query($conn, $afternoon_stats);
-
-// Check if query failed
-if(!$afternoon_result) {
-    $afternoon_result = [];
-    $afternoon_present = $afternoon_late = $afternoon_absent = $afternoon_half_day = $afternoon_holiday = $afternoon_left_early = 0;
-} else {
+if($afternoon_result) {
     while($row = mysqli_fetch_assoc($afternoon_result)) {
         $status = $row['status'];
-        // Check for left early (if checked out before session end)
         $check_out = $row['check_out_time'];
-        $is_early = false;
-        if($check_out && $check_out < $afternoon_end) {
-            $is_early = true;
-        }
+        $is_early = ($check_out && $check_out < $afternoon_end);
         
-        if($is_early && ($status == 'present' || $status == 'late')) {
+        if($status == 'late_early') {
+            $afternoon_late_early++;
+        }
+        elseif($is_early && ($status == 'present' || $status == 'late')) {
             $afternoon_left_early++;
         } elseif($status == 'present') {
             $afternoon_present++;
@@ -180,37 +137,17 @@ if(!$afternoon_result) {
             $afternoon_holiday++;
         } elseif($status == 'left_early') {
             $afternoon_left_early++;
+        } elseif($status == 'absent' || $status == '') {
+            $afternoon_absent++;
         } else {
             $afternoon_absent++;
         }
     }
 }
-while($row = mysqli_fetch_assoc($afternoon_result)) {
-    $status = $row['status'];
-    // Check for left early (if checked out before session end)
-    $check_out = $row['check_out_time'];
-    $is_early = false;
-    if($check_out && $check_out < $afternoon_end) {
-        $is_early = true;
-    }
-    
-    if($is_early && ($status == 'present' || $status == 'late')) {
-        $afternoon_left_early++;
-    } elseif($status == 'present') {
-        $afternoon_present++;
-    } elseif($status == 'late') {
-        $afternoon_late++;
-    } elseif($status == 'half_day') {
-        $afternoon_half_day++;
-    } elseif($status == 'holiday') {
-        $afternoon_holiday++;
-    } elseif($status == 'left_early') {
-        $afternoon_left_early++;
-    } else {
-        $afternoon_absent++;
-    }
-}
 
+// --------------------------------------------------------------
+// 3) EMPLOYEE LIST WITH SORTING (including late_early, NULL handled)
+// --------------------------------------------------------------
 $employee_query = "SELECT u.name, e.employee_id, e.employee_code, e.department, e.position,
                           m.check_in_time as morning_in, m.check_out_time as morning_out, m.status as morning_status, m.late_minutes as morning_late,
                           a.check_in_time as afternoon_in, a.check_out_time as afternoon_out, a.status as afternoon_status, a.late_minutes as afternoon_late
@@ -221,28 +158,34 @@ $employee_query = "SELECT u.name, e.employee_id, e.employee_code, e.department, 
                    WHERE u.role = 'employee' AND u.status = 'Active'
                    ORDER BY 
                        CASE 
-                           WHEN m.status = 'present' THEN 1
-                           WHEN m.status = 'late' THEN 2
-                           WHEN m.status = 'half_day' THEN 3
-                           WHEN m.status = 'holiday' THEN 4
+                           WHEN m.status = 'present'   THEN 1
+                           WHEN m.status = 'late'      THEN 2
+                           WHEN m.status = 'half_day'  THEN 3
+                           WHEN m.status = 'holiday'   THEN 4
                            WHEN m.status = 'left_early' THEN 5
-                           WHEN m.status = 'absent' THEN 6
-                           ELSE 7
+                           WHEN m.status = 'late_early' THEN 6
+                           WHEN m.status = 'absent'    THEN 7
+                           ELSE 8   -- NULL or any other goes last
                        END,
                        u.name ASC";
 $employee_result = mysqli_query($conn, $employee_query);
 
-// Check if employee query failed
-if(!$employee_result) {
-    $employee_result = [];
-}
-
-// Function to get badge class and text based on status (matching report view)
+// --------------------------------------------------------------
+// 4) BADGE FUNCTION (now supports 'late_early' and NULL -> '-')
+// --------------------------------------------------------------
 function getStatusBadge($status, $check_out_time = null, $session_end = null) {
-    // Check for left early
+    // If status is NULL (no record exists), show dash
+    if ($status === null) {
+        return ['class' => 'status-none', 'text' => '-'];
+    }
+    
     $is_early = false;
     if($check_out_time && $session_end && $check_out_time < $session_end) {
         $is_early = true;
+    }
+    
+    if($status == 'late_early') {
+        return ['class' => 'status-late-early', 'text' => 'Late + Early'];
     }
     
     if($is_early && ($status == 'present' || $status == 'late')) {
@@ -250,18 +193,13 @@ function getStatusBadge($status, $check_out_time = null, $session_end = null) {
     }
     
     switch($status) {
-        case 'present':
-            return ['class' => 'status-present', 'text' => 'Present'];
-        case 'late':
-            return ['class' => 'status-late', 'text' => 'Late'];
-        case 'half_day':
-            return ['class' => 'status-half-day', 'text' => 'Half Day'];
-        case 'holiday':
-            return ['class' => 'status-holiday', 'text' => 'Holiday'];
-        case 'left_early':
-            return ['class' => 'status-early-left', 'text' => 'Early Left'];
-        default:
-            return ['class' => 'status-absent', 'text' => 'Absent'];
+        case 'present':    return ['class' => 'status-present',   'text' => 'Present'];
+        case 'late':       return ['class' => 'status-late',      'text' => 'Late'];
+        case 'half_day':   return ['class' => 'status-half-day',  'text' => 'Half Day'];
+        case 'holiday':    return ['class' => 'status-holiday',   'text' => 'Holiday'];
+        case 'left_early': return ['class' => 'status-early-left','text' => 'Early Left'];
+        case 'absent':     return ['class' => 'status-absent',    'text' => 'Absent'];
+        default:           return ['class' => 'status-absent',    'text' => 'Absent'];
     }
 }
 ?>
@@ -313,6 +251,10 @@ function getStatusBadge($status, $check_out_time = null, $session_end = null) {
                                 <div class="stat-label">Early Left</div>
                             </div>
                             <div class="stat-item">
+                                <div class="stat-value late-early"><?php echo $morning_late_early; ?></div>
+                                <div class="stat-label">Late + Early</div>
+                            </div>
+                            <div class="stat-item">
                                 <div class="stat-value half-day"><?php echo $morning_half_day; ?></div>
                                 <div class="stat-label">Half Day</div>
                             </div>
@@ -325,7 +267,7 @@ function getStatusBadge($status, $check_out_time = null, $session_end = null) {
                                 <div class="stat-label">Absent</div>
                             </div>
                             <div class="stat-item">
-                                <div class="stat-value total"><?php echo $morning_present + $morning_late + $morning_left_early + $morning_half_day + $morning_holiday + $morning_absent; ?></div>
+                                <div class="stat-value total"><?php echo $morning_present + $morning_late + $morning_left_early + $morning_late_early + $morning_half_day + $morning_holiday + $morning_absent; ?></div>
                                 <div class="stat-label">Total</div>
                             </div>
                         </div>
@@ -352,6 +294,10 @@ function getStatusBadge($status, $check_out_time = null, $session_end = null) {
                                 <div class="stat-label">Early Left</div>
                             </div>
                             <div class="stat-item">
+                                <div class="stat-value late-early"><?php echo $afternoon_late_early; ?></div>
+                                <div class="stat-label">Late + Early</div>
+                            </div>
+                            <div class="stat-item">
                                 <div class="stat-value half-day"><?php echo $afternoon_half_day; ?></div>
                                 <div class="stat-label">Half Day</div>
                             </div>
@@ -364,7 +310,7 @@ function getStatusBadge($status, $check_out_time = null, $session_end = null) {
                                 <div class="stat-label">Absent</div>
                             </div>
                             <div class="stat-item">
-                                <div class="stat-value total"><?php echo $afternoon_present + $afternoon_late + $afternoon_left_early + $afternoon_half_day + $afternoon_holiday + $afternoon_absent; ?></div>
+                                <div class="stat-value total"><?php echo $afternoon_present + $afternoon_late + $afternoon_left_early + $afternoon_late_early + $afternoon_half_day + $afternoon_holiday + $afternoon_absent; ?></div>
                                 <div class="stat-label">Total</div>
                             </div>
                         </div>
@@ -421,7 +367,7 @@ function getStatusBadge($status, $check_out_time = null, $session_end = null) {
                             <?php endwhile; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="12" class="text-center">No active employees found</td
+                                <td colspan="12" class="text-center">No active employees found</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>
