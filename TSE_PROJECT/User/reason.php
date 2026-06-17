@@ -13,9 +13,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'employee') {
 $user_id = $_SESSION['user_id'];
 $message = "";
 
-// ============================================================
 // 1. Get employee_id from user_id
-// ============================================================
 $employeeSql = "SELECT employee_id FROM employees WHERE user_id = ?";
 $employeeStmt = $conn->prepare($employeeSql);
 $employeeStmt->bind_param("i", $user_id);
@@ -45,13 +43,19 @@ $endTimestamp = strtotime($workingHourEnd);
 
 $isWorkingHour = ($currentTimestamp >= $startTimestamp && $currentTimestamp <= $endTimestamp);
 
-// ============================================================
+// NEW: Check if it's before midnight (00:00 to 23:59:59)
+// The form should be accessible until 11:59:59 PM
+$isBeforeMidnight = ($currentTimestamp < strtotime('23:59:59'));
+
 // 2. Check today's attendance records from database
-// ============================================================
 $todayRecords = [];
 $hasAnyRecord = false;
 $isPresent = false;
 $abnormalRecords = [];
+
+// Define which statuses require a reason (only late, early_leave, late_early)
+// Note: 'early_leave' in code should match 'left_early' in database
+$reasonRequiredStatuses = ['late', 'left_early', 'late_early'];
 
 $sql = "
     SELECT 
@@ -80,35 +84,38 @@ while ($row = $result->fetch_assoc()) {
         $isPresent = true;
     }
     
-    // Collect abnormal records (late, absent, early_leave)
-    if (in_array($row['status'], ['late', 'absent', 'early_leave'])) {
+    // Collect records that need a reason (late, left_early, late_early only)
+    // EXCLUDING: absent, half_day, holiday
+    if (in_array($row['status'], $reasonRequiredStatuses)) {
         $abnormalRecords[] = $row;
     }
 }
 $stmt->close();
 
-// ============================================================
 // 3. Determine what to display
-// ============================================================
-$outsideWorkingHours = !$isWorkingHour;
 $hasAbnormalRecords = (count($abnormalRecords) > 0);
 
-// Debug info (you can remove this after testing)
-// echo "<!-- Debug: user_id=$user_id, employee_id=$employee_id, today=$today, records=" . count($todayRecords) . ", isPresent=" . ($isPresent ? 'true' : 'false') . ", abnormal=" . count($abnormalRecords) . " -->";
+// CHECK if any abnormal record already has a reason (notes not empty)
+$hasSubmittedReasons = false;
+foreach ($abnormalRecords as $record) {
+    if (!empty($record['notes'])) {
+        $hasSubmittedReasons = true;
+        break;
+    }
+}
 
-// ============================================================
 // 4. Handle form submission
-// ============================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
     $reasons = $_POST['reason'] ?? [];
     $allUpdated = true;
     $updatedCount = 0;
 
+    // Only process records that require a reason
     foreach ($reasons as $record_id => $reason) {
         $reason = trim($reason);
         if ($reason === '') {
             $allUpdated = false;
-            $message = "Please provide reasons for all abnormal records.";
+            $message = "Please provide reasons for all required records.";
             break;
         }
 
@@ -142,22 +149,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
             if ($row['status'] == 'present') {
                 $isPresent = true;
             }
-            if (in_array($row['status'], ['late', 'absent', 'early_leave'])) {
+            if (in_array($row['status'], $reasonRequiredStatuses)) {
                 $abnormalRecords[] = $row;
             }
         }
         $stmt->close();
         $hasAbnormalRecords = (count($abnormalRecords) > 0);
+        
+        // Re-check if any abnormal record has a reason
+        $hasSubmittedReasons = false;
+        foreach ($abnormalRecords as $record) {
+            if (!empty($record['notes'])) {
+                $hasSubmittedReasons = true;
+                break;
+            }
+        }
     } elseif ($allUpdated && $updatedCount == 0) {
         $message = "No changes were made.";
     }
 }
 
+// Status labels for display (matching database values)
 $statusLabels = [
     'late'        => 'Late',
+    'left_early'  => 'Early Leave',
+    'late_early'  => 'Late & Early Leave',
     'absent'      => 'Absent',
-    'early_leave' => 'Early Leave'
+    'half_day'    => 'Half Day',
+    'holiday'     => 'Holiday',
+    'present'     => 'Present'
 ];
+
 $sessionLabels = [
     'morning'   => 'Morning (9:00 AM - 12:00 PM)',
     'afternoon' => 'Afternoon (1:00 PM - 6:00 PM)'
@@ -226,15 +248,15 @@ textarea.form-control {
     color: #92400e;
     border-color: #f59e0b;
 }
-.status-absent {
-    background: #fee2e2;
-    color: #991b1b;
-    border-color: #ef4444;
-}
-.status-early_leave {
+.status-left_early {
     background: #dbeafe;
     color: #1e40af;
     border-color: #3b82f6;
+}
+.status-late_early {
+    background: #fce4ec;
+    color: #880e4f;
+    border-color: #e91e63;
 }
 .submit-btn {
     width: 100%;
@@ -309,10 +331,15 @@ textarea.form-control {
     color: #92400e;
     border-color: #f59e0b;
 }
-.info-box.early {
+.info-box.left_early {
     background: #dbeafe;
     color: #1e40af;
     border-color: #3b82f6;
+}
+.info-box.late_early {
+    background: #fce4ec;
+    color: #880e4f;
+    border-color: #e91e63;
 }
 .record-item {
     border: 1px solid #e5e7eb;
@@ -338,8 +365,12 @@ textarea.form-control {
     font-weight: 600;
 }
 .badge-late { background: #fef3c7; color: #92400e; }
+.badge-left_early { background: #dbeafe; color: #1e40af; }
+.badge-late_early { background: #fce4ec; color: #880e4f; }
 .badge-absent { background: #fee2e2; color: #991b1b; }
-.badge-early_leave { background: #dbeafe; color: #1e40af; }
+.badge-half_day { background: #fef3c7; color: #92400e; }
+.badge-holiday { background: #d1fae5; color: #065f46; }
+.badge-present { background: #d1fae5; color: #065f46; }
 .working-hours-info {
     text-align: center;
     padding: 10px;
@@ -374,6 +405,44 @@ textarea.form-control {
     font-size: 18px;
     margin-right: 5px;
 }
+.submitted-reason-box {
+    padding: 12px 16px;
+    background: #e8f5e9;
+    border-radius: 10px;
+    border-left: 4px solid #4caf50;
+    margin-top: 10px;
+}
+.submitted-reason-box .label {
+    font-weight: 600;
+    color: #2e7d32;
+    font-size: 13px;
+    display: block;
+    margin-bottom: 4px;
+}
+.submitted-reason-box .reason-text {
+    color: #1b5e20;
+    font-size: 15px;
+}
+.reason-required-badge {
+    display: inline-block;
+    background: #ff9800;
+    color: white;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 8px;
+}
+.reason-submitted-badge {
+    display: inline-block;
+    background: #4caf50;
+    color: white;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 8px;
+}
 </style>
 
 <div class="main-container">
@@ -388,6 +457,7 @@ textarea.form-control {
             <!-- Working Hours Info -->
             <div class="working-hours-info">
                 Working Hours: 9:00 AM - 6:00 PM (Current time: <?php echo date('h:i A'); ?>)
+                <br><small>Reasons can be submitted until 11:59 PM today</small>
             </div>
 
             <!-- Date Display (Read-only) -->
@@ -397,73 +467,58 @@ textarea.form-control {
             </div>
 
             <?php
-            // ============================================================
-            // DISPLAY LOGIC
-            // ============================================================
             
-            // CASE 1: Outside working hours (before 9:00 or after 18:00)
-            if ($outsideWorkingHours) {
+            // CASE 1: Check if it's past midnight (00:00 of next day)
+            $isEarlyMorning = ($currentTimestamp >= strtotime('00:00:00') && $currentTimestamp < strtotime('09:00:00'));
+            
+            if ($isEarlyMorning) {
                 ?>
                 <div class="info-box empty">
                     No attendance records found for today.
-                    <br><small>(Attendance can only be viewed during working hours: 9:00 AM - 6:00 PM)</small>
+                    <br><small>(Attendance records are only available from 9:00 AM to 11:59 PM)</small>
                 </div>
                 <?php
             }
-            // CASE 2: Within working hours
+            // CASE 2: Within the day (9:00 AM to 11:59 PM)
             else {
-                // CASE 2a: Employee is marked Present (has at least one 'present' record)
-                if ($isPresent && !$hasAbnormalRecords) {
-                    ?>
-                    <div class="info-box success">
-                        You are marked <strong>Present</strong> for all sessions today. No reason is required.
-                    </div>
-                    <?php
-                }
-                // CASE 2b: Employee has both present and abnormal records (mixed)
-                elseif ($isPresent && $hasAbnormalRecords) {
-                    ?>
-                    <div class="info-box" style="background:#fff3cd; color:#856404; border-color:#ffc107; margin-bottom:20px;">
-                        ⚠️ You have <strong><?php echo count($abnormalRecords); ?></strong> abnormal attendance record(s) today.
-                        Please provide a reason for each abnormal session.
-                    </div>
+                // Check if there are any records that need a reason (late, left_early, late_early)
+                if ($hasAbnormalRecords) {
+                    // Check if ALL abnormal records already have a reason submitted
+                    $allHaveReasons = true;
+                    foreach ($abnormalRecords as $record) {
+                        if (empty($record['notes'])) {
+                            $allHaveReasons = false;
+                            break;
+                        }
+                    }
                     
-                    <!-- Show summary of all sessions -->
-                    <div class="record-summary">
-                        <?php foreach ($todayRecords as $record): 
-                            $session = $record['session'];
-                            $status = $record['status'];
-                            $statusDisplay = ucfirst(str_replace('_', ' ', $status));
-                            $icon = ($status == 'present') ? '✅' : '⚠️';
+                    if ($allHaveReasons) {
+                        // ALL records have reasons - show only the submitted reasons
                         ?>
-                            <div class="record-summary-item">
-                                <?php echo $icon; ?> <strong><?php echo ucfirst($session); ?>:</strong> 
-                                <?php echo $statusDisplay; ?>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                    
-                    <form method="POST" style="margin-top: 20px;">
+                        <div class="info-box success" style="margin-bottom:20px;">
+                            All reasons have been submitted successfully.
+                        </div>
+                        
+                        <!-- Show summary of all sessions -->
+                        <div class="record-summary">
+                            <?php foreach ($todayRecords as $record): 
+                                $session = $record['session'];
+                                $status = $record['status'];
+                                $statusDisplay = ucfirst(str_replace('_', ' ', $status));
+                                $needsReason = in_array($status, ['late', 'left_early', 'late_early']);
+                                $icon = ($status == 'present' || $status == 'holiday') ? '✅' : ($needsReason ? '📝' : 'ℹ️');
+                            ?>
+                                <div class="record-summary-item">
+                                    <?php echo $icon; ?> <strong><?php echo ucfirst($session); ?>:</strong> 
+                                    <?php echo $statusDisplay; ?>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                        
                         <?php foreach ($abnormalRecords as $record): 
-                            $recordId = $record['record_id'];
                             $session = $record['session'];
                             $status = $record['status'];
                             $existingNote = $record['notes'] ?? '';
-                            
-                            // Display appropriate info box based on status
-                            $statusClass = '';
-                            $statusIcon = '';
-                            $statusMessage = '';
-                            if ($status == 'absent') {
-                                $statusClass = 'absent';
-                                $statusMessage = 'You are marked as <strong>Absent</strong> for this session. Please provide a reason.';
-                            } elseif ($status == 'late') {
-                                $statusClass = 'late';
-                                $statusMessage = 'You are marked as <strong>Late</strong> for this session. Please provide a reason.';
-                            } elseif ($status == 'early_leave') {
-                                $statusClass = 'early';
-                                $statusMessage = 'You are marked as <strong>Early Leave</strong> for this session. Please provide a reason.';
-                            }
                         ?>
                             <div class="record-item">
                                 <div class="record-header">
@@ -472,104 +527,177 @@ textarea.form-control {
                                         <span class="session-time">(<?php echo $sessionTimes[$session] ?? ''; ?>)</span>
                                     </span>
                                     <span class="badge badge-<?php echo $status; ?>">
-                                        <?php echo $statusIcon; ?> <?php echo $statusLabels[$status] ?? $status; ?>
+                                        <?php echo $statusLabels[$status] ?? $status; ?>
+                                        <span class="reason-submitted-badge">✓ Reason Submitted</span>
                                     </span>
                                 </div>
-                                <div class="info-box <?php echo $statusClass; ?>" style="margin-bottom: 15px;">
-                                    <?php echo $statusMessage; ?>
+                                
+                                <div class="submitted-reason-box">
+                                    <span class="label">📝 Reason Provided:</span>
+                                    <span class="reason-text"><?php echo htmlspecialchars($existingNote); ?></span>
                                 </div>
-                                
-                                <?php if (!empty($existingNote)): ?>
-                                    <div style="margin-bottom: 10px; padding: 8px 12px; background: #e8f5e9; border-radius: 8px; color: #2e7d32; font-size: 13px;">
-                                        Previously submitted: "<?php echo htmlspecialchars($existingNote); ?>"
-                                    </div>
-                                <?php endif; ?>
-                                
-                                <textarea 
-                                    name="reason[<?php echo $recordId; ?>]" 
-                                    class="form-control" 
-                                    placeholder="Please explain why you were <?php echo strtolower($statusLabels[$status] ?? $status); ?> for the <?php echo $session; ?> session..."
-                                    rows="3"
-                                ><?php echo htmlspecialchars($existingNote); ?></textarea>
                             </div>
                         <?php endforeach; ?>
-                        <button type="submit" name="submit" class="submit-btn">
-                            Submit Reason<?php echo count($abnormalRecords) > 1 ? 's' : ''; ?>
-                        </button>
-                    </form>
-                    <?php
-                }
-                // CASE 2c: Only abnormal records (no present records)
-                elseif ($hasAbnormalRecords && !$isPresent) {
-                    ?>
-                    <div class="info-box" style="background:#fef3c7; color:#92400e; border-color:#f59e0b; margin-bottom:20px;">
-                        ⚠️ You have <strong><?php echo count($abnormalRecords); ?></strong> abnormal attendance record(s) today. 
-                        Please provide a reason for each.
-                    </div>
-                    
-                    <form method="POST">
-                        <?php foreach ($abnormalRecords as $record): 
-                            $recordId = $record['record_id'];
-                            $session = $record['session'];
-                            $status = $record['status'];
-                            $existingNote = $record['notes'] ?? '';
-                            
-                            // Display appropriate info box based on status
-                            $statusClass = '';
-                            $statusIcon = '';
-                            $statusMessage = '';
-                            if ($status == 'absent') {
-                                $statusClass = 'absent';
-                                $statusMessage = 'You are marked as <strong>Absent</strong> for this session. Please provide a reason.';
-                            } elseif ($status == 'late') {
-                                $statusClass = 'late';
-                                $statusMessage = 'You are marked as <strong>Late</strong> for this session. Please provide a reason.';
-                            } elseif ($status == 'early_leave') {
-                                $statusClass = 'early';
-                                $statusMessage = 'You are marked as <strong>Early Leave</strong> for this session. Please provide a reason.';
-                            }
+                        <?php
+                    } else {
+                        // Some records don't have reasons yet - show form
                         ?>
-                            <div class="record-item">
-                                <div class="record-header">
-                                    <span>
-                                        <?php echo $sessionLabels[$session] ?? ucfirst($session); ?>
-                                        <span class="session-time">(<?php echo $sessionTimes[$session] ?? ''; ?>)</span>
-                                    </span>
-                                    <span class="badge badge-<?php echo $status; ?>">
-                                        <?php echo $statusIcon; ?> <?php echo $statusLabels[$status] ?? $status; ?>
-                                    </span>
+                        <div class="info-box" style="background:#fff3cd; color:#856404; border-color:#ffc107; margin-bottom:20px;">
+                            You have <strong><?php echo count($abnormalRecords); ?></strong> attendance record(s) that require a reason.
+                            Please provide a reason for each.
+                        </div>
+                        
+                        <!-- Show summary of all sessions -->
+                        <div class="record-summary">
+                            <?php foreach ($todayRecords as $record): 
+                                $session = $record['session'];
+                                $status = $record['status'];
+                                $statusDisplay = ucfirst(str_replace('_', ' ', $status));
+                                $needsReason = in_array($status, ['late', 'left_early', 'late_early']);
+                                $hasReason = !empty($record['notes']);
+                                $icon = ($status == 'present' || $status == 'holiday') ? '✅' : ($needsReason ? ($hasReason ? '📝' : '⚠️') : 'ℹ️');
+                            ?>
+                                <div class="record-summary-item">
+                                    <?php echo $icon; ?> <strong><?php echo ucfirst($session); ?>:</strong> 
+                                    <?php echo $statusDisplay; ?>
+                                    <?php if ($needsReason && !$hasReason): ?>
+                                        <span style="color:#dc3545; font-size:11px;">(reason required)</span>
+                                    <?php elseif ($needsReason && $hasReason): ?>
+                                        <span style="color:#4caf50; font-size:11px;">(reason submitted)</span>
+                                    <?php endif; ?>
                                 </div>
-                                <div class="info-box <?php echo $statusClass; ?>" style="margin-bottom: 15px;">
-                                    <?php echo $statusMessage; ?>
-                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                        
+                        <form method="POST" style="margin-top: 20px;">
+                            <?php foreach ($abnormalRecords as $record): 
+                                $recordId = $record['record_id'];
+                                $session = $record['session'];
+                                $status = $record['status'];
+                                $existingNote = $record['notes'] ?? '';
                                 
-                                <?php if (!empty($existingNote)): ?>
-                                    <div style="margin-bottom: 10px; padding: 8px 12px; background: #e8f5e9; border-radius: 8px; color: #2e7d32; font-size: 13px;">
-                                        Previously submitted: "<?php echo htmlspecialchars($existingNote); ?>"
+                                // Skip showing textarea if already has a reason
+                                if (!empty($existingNote)) {
+                                    // Show the submitted reason instead
+                                    ?>
+                                    <div class="record-item">
+                                        <div class="record-header">
+                                            <span>
+                                                <?php echo $sessionLabels[$session] ?? ucfirst($session); ?>
+                                                <span class="session-time">(<?php echo $sessionTimes[$session] ?? ''; ?>)</span>
+                                            </span>
+                                            <span class="badge badge-<?php echo $status; ?>">
+                                                <?php echo $statusLabels[$status] ?? $status; ?>
+                                                <span class="reason-submitted-badge">✓ Submitted</span>
+                                            </span>
+                                        </div>
+                                        <div class="submitted-reason-box">
+                                            <span class="label">📝 Reason Provided:</span>
+                                            <span class="reason-text"><?php echo htmlspecialchars($existingNote); ?></span>
+                                        </div>
                                     </div>
-                                <?php endif; ?>
+                                    <?php
+                                    continue;
+                                }
                                 
-                                <textarea 
-                                    name="reason[<?php echo $recordId; ?>]" 
-                                    class="form-control" 
-                                    placeholder="Please explain why you were <?php echo strtolower($statusLabels[$status] ?? $status); ?> for the <?php echo $session; ?> session..."
-                                    rows="3"
-                                ><?php echo htmlspecialchars($existingNote); ?></textarea>
-                            </div>
-                        <?php endforeach; ?>
-                        <button type="submit" name="submit" class="submit-btn">
-                            Submit Reason<?php echo count($abnormalRecords) > 1 ? 's' : ''; ?>
-                        </button>
-                    </form>
-                    <?php
+                                // Display appropriate info box based on status
+                                $statusClass = '';
+                                $statusMessage = '';
+                                if ($status == 'late') {
+                                    $statusClass = 'late';
+                                    $statusMessage = 'You are marked as <strong>Late</strong> for this session. Please provide a reason.';
+                                } elseif ($status == 'left_early') {
+                                    $statusClass = 'left_early';
+                                    $statusMessage = 'You are marked as <strong>Early Leave</strong> for this session. Please provide a reason.';
+                                } elseif ($status == 'late_early') {
+                                    $statusClass = 'late_early';
+                                    $statusMessage = 'You are marked as <strong>Late & Early Leave</strong> for this session. Please provide a reason.';
+                                }
+                            ?>
+                                <div class="record-item">
+                                    <div class="record-header">
+                                        <span>
+                                            <?php echo $sessionLabels[$session] ?? ucfirst($session); ?>
+                                            <span class="session-time">(<?php echo $sessionTimes[$session] ?? ''; ?>)</span>
+                                        </span>
+                                        <span class="badge badge-<?php echo $status; ?>">
+                                            <?php echo $statusLabels[$status] ?? $status; ?>
+                                            <span class="reason-required-badge">⚠️ Reason Required</span>
+                                        </span>
+                                    </div>
+                                    <div class="info-box <?php echo $statusClass; ?>" style="margin-bottom: 15px;">
+                                        <?php echo $statusMessage; ?>
+                                    </div>
+                                    
+                                    <textarea 
+                                        name="reason[<?php echo $recordId; ?>]" 
+                                        class="form-control" 
+                                        placeholder="Please explain why you were <?php echo strtolower($statusLabels[$status] ?? $status); ?> for the <?php echo $session; ?> session..."
+                                        rows="3"
+                                        required
+                                    ></textarea>
+                                </div>
+                            <?php endforeach; ?>
+                            <button type="submit" name="submit" class="submit-btn">
+                                Submit Reason<?php echo count(array_filter($abnormalRecords, function($r) { return empty($r['notes']); })) > 1 ? 's' : ''; ?>
+                            </button>
+                        </form>
+                        <?php
+                    }
                 }
-                // CASE 2d: Within working hours but NO records at all
+                // CASE 2b: No records that need a reason (all present, absent, holiday, half_day, or no records)
                 else {
-                    ?>
-                    <div class="info-box empty">
-                        No attendance records found for today.
-                    </div>
-                    <?php
+                    // Check if there are ANY records today
+                    if ($hasAnyRecord) {
+                        // Check if any records are present
+                        if ($isPresent) {
+                            ?>
+                            <div class="info-box success">
+                                You are marked <strong>Present</strong> for all sessions today. No reason is required.
+                            </div>
+                            <?php
+                        } else {
+                            // Records exist but none are 'present' - they might be absent, half_day, or holiday
+                            ?>
+                            <div class="info-box" style="background:#e3f2fd; color:#0d47a1; border-color:#1e88e5;">
+                                <?php 
+                                $statuses = array_unique(array_column($todayRecords, 'status'));
+                                $statusList = array_map(function($s) use ($statusLabels) {
+                                    return $statusLabels[$s] ?? $s;
+                                }, $statuses);
+                                ?>
+                                Your attendance today: <strong><?php echo implode(', ', $statusList); ?></strong>.
+                                <?php if (in_array('absent', $statuses) || in_array('half_day', $statuses)): ?>
+                                    <br><span style="font-size:13px; font-weight:normal;">Note: Absent and Half Day statuses do not require a reason in this form.</span>
+                                <?php endif; ?>
+                            </div>
+                            <?php
+                            
+                            // Show summary of all records
+                            ?>
+                            <div class="record-summary">
+                                <?php foreach ($todayRecords as $record): 
+                                    $session = $record['session'];
+                                    $status = $record['status'];
+                                    $statusDisplay = ucfirst(str_replace('_', ' ', $status));
+                                    $icon = ($status == 'present' || $status == 'holiday') ? '✅' : 'ℹ️';
+                                ?>
+                                    <div class="record-summary-item">
+                                        <?php echo $icon; ?> <strong><?php echo ucfirst($session); ?>:</strong> 
+                                        <?php echo $statusDisplay; ?>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                            <?php
+                        }
+                    } else {
+                        ?>
+                        <div class="info-box empty">
+                            No attendance records found for today.
+                            <br><small>If you have completed your attendance, the records will appear here.</small>
+                        </div>
+                        <?php
+                    }
                 }
             }
             ?>
