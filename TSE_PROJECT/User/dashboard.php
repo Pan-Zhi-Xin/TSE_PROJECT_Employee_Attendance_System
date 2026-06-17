@@ -169,8 +169,15 @@ function calculateLateMinutes($check_in_time, $session) {
     return 0;
 }
 
-function getSessionStatus($check_in_time, $check_out_time, $session) {
+function getSessionStatus($check_in_time, $check_out_time, $session, $db_status = null) {
     global $work_start_time_morning, $work_start_time_afternoon, $work_end_time_morning, $work_end_time_afternoon;
+    
+    if($db_status !== null && $db_status != '') {
+        $special_statuses = ['half_day', 'holiday', 'left_early', 'absent', 'late_early'];
+        if(in_array($db_status, $special_statuses)) {
+            return $db_status;
+        }
+    }
     
     if(!$check_in_time) return 'absent';
     
@@ -212,7 +219,7 @@ while($row = mysqli_fetch_assoc($result)) {
     $row['session'] = $session_name;
     $row['calculated_working_hours'] = calculateWorkingHours($row['check_in_time'], $row['check_out_time']);
     $row['calculated_late_minutes'] = calculateLateMinutes($row['check_in_time'], $session_name);
-    $row['calculated_status'] = getSessionStatus($row['check_in_time'], $row['check_out_time'], $session_name);
+    $row['calculated_status'] = getSessionStatus($row['check_in_time'], $row['check_out_time'], $session_name, $row['status']);
     $today_records[] = $row;
 }
 
@@ -253,18 +260,18 @@ while($row = mysqli_fetch_assoc($summary_result)) {
     }
     
     // Use session column from database
-    $session = $row['session']; // 'morning' or 'afternoon'
-    $status = getSessionStatus($row['check_in_time'], $row['check_out_time'], $session);
+    $session = $row['session'];
+    $status = getSessionStatus($row['check_in_time'], $row['check_out_time'], $session, $row['status']);
     
     if($session == 'morning') {
         if($status == 'present') $summary['morning_present']++;
         elseif($status == 'late') $summary['morning_late']++;
-        elseif($status == 'early_leave') $summary['morning_early']++;
+        elseif($status == 'left_early') $summary['morning_early']++;
         elseif($status == 'late_early') $summary['morning_late_early']++;
     } else {
         if($status == 'present') $summary['afternoon_present']++;
         elseif($status == 'late') $summary['afternoon_late']++;
-        elseif($status == 'early_leave') $summary['afternoon_early']++;
+        elseif($status == 'left_early') $summary['afternoon_early']++;
         elseif($status == 'late_early') $summary['afternoon_late_early']++;
     }
     
@@ -699,7 +706,7 @@ unset($_SESSION['checkin_time']);
             </div>
             <div class="modal-body">
                 <div class="info-box" id="checkoutInfo"></div>
-                <div class="warning-text">Make sure you have completed all your tasks</div>
+                <div class="warning-text">Once you check out, you cannot check in again for this session</div>
             </div>
             <div class="modal-footer">
                 <button class="btn-confirm" onclick="confirmCheckout()">Yes, Check Out</button>
@@ -794,7 +801,7 @@ unset($_SESSION['checkin_time']);
                 } elseif($record['calculated_status'] == 'late') {
                     $status_text = 'Late';
                     $status_class = 'badge-warning';
-                } elseif($record['calculated_status'] == 'early_leave') {
+                } elseif($record['calculated_status'] == 'left_early') {
                     $status_text = 'Left Early';
                     $status_class = 'badge-warning';
                 } elseif($record['calculated_status'] == 'late_early') {
