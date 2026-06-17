@@ -164,401 +164,640 @@ if (isset($_POST['verify_otp'])) {
     <title>Verify OTP</title>
     <script src="https://kit.fontawesome.com/c2f7d169d6.js" crossorigin="anonymous"></script>
     <style>
-        *{
-            margin:0;
-            padding:0;
-            box-sizing:border-box;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        body{
-            font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            min-height:100vh;
-            background:#f4f4f4;
-            display:flex;
-            flex-direction:column;
+        body {
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: #f0f4fc;
         }
 
-        header{
-            background:#fff;
-            padding:15px 40px;
-            display:flex;
-            justify-content:space-between;
-            align-items:center;
-            box-shadow:0 2px 15px rgba(0,0,0,0.08);
-            z-index:10;
+        /* ----- background ----- */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background: url('../login_admin_background.png') center / cover no-repeat fixed;
+            filter: blur(8px);
+            z-index: -2;
         }
 
-        .logo img{
-            height:60px;
-            width:auto;
+        body::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.25);
+            z-index: -1;
         }
 
-        .home a{
-            text-decoration:none;
-            color:#333;
-            display:flex;
-            align-items:center;
-            gap:10px;
-            font-weight:600;
-            transition:0.3s;
+        /* ----- header ----- */
+        header {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(4px);
+            padding: 12px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+            position: relative;
+            z-index: 5;
         }
 
-        .home a:hover{
-            color:#5170ff;
+        .logo img {
+            transform: translateX(20px);
+            height: 60px;
+            width: auto;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
         }
 
-        .home i{
-            font-size:22px;
+        .home a {
+            text-decoration: none;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+            transition: 0.2s;
+            padding: 6px 14px;
+            border-radius: 40px;
+            background: rgba(255,255,255,0.3);
         }
 
-        .home h2{
-            font-size:16px;
-            margin:0;
+        .home a:hover {
+            color: #4f6ef7;
+            background: rgba(79, 110, 247, 0.08);
         }
 
-        .main-content{
-            flex:1;
-            display:flex;
-            justify-content:center;
-            align-items:center;
-            padding:30px;
+        .home i {
+            font-size: 22px;
         }
 
-        .container{
-            width:100%;
-            max-width:600px;
-            background:#fff;
-            padding:40px;
-            border-radius:20px;
-            box-shadow:0 10px 30px rgba(0,0,0,0.12);
-            text-align:center;
-            animation:fadeIn .5s ease;
+        .home h2 {
+            font-size: 18px;
+            font-weight: 500;
+            margin: 0;
         }
 
-        @keyframes fadeIn{
-            from{
-                opacity:0;
-                transform:translateY(20px);
-            }
-            to{
-                opacity:1;
-                transform:translateY(0);
-            }
+        /* ----- main container ----- */
+        .container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 30px 20px;
+            position: relative;
+            z-index: 3;
         }
 
-        h2{
-            color:#333;
-            font-size:30px;
-            margin-bottom:10px;
+        .login-wrapper {
+            display: flex;
+            flex-wrap: wrap;
+            max-width: 1100px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(6px);
+            border-radius: 36px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.30);
+            transition: 0.3s;
+            border: 1px solid rgba(255, 255, 255, 0.3);
         }
 
-        .info{
-            background:#f5f7ff;
-            border-left:4px solid #667eea;
-            padding:12px;
-            border-radius:8px;
-            margin-bottom:20px;
-            color:#555;
-            font-size:14px;
-            line-height:1.5;
+        /* ----- form column ----- */
+        .login-col {
+            flex: 1 1 50%;
+            padding: 48px 40px 40px 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(2px);
         }
 
-        .info strong{
-            color:#667eea;
+        .welcome-section {
+            margin-bottom: 30px;
         }
 
-        .message{
-            padding:12px;
-            border-radius:8px;
-            margin-bottom:20px;
-            font-size:14px;
+        .welcome-section h2 {
+            font-size: 32px;
+            font-weight: 700;
+            color: #0b1e3a;
+            letter-spacing: -0.5px;
+            margin-bottom: 6px;
         }
 
-        .message.error{
-            background:#ffeaea;
-            color:#d63031;
+        .welcome-subtitle {
+            color: #64748b;
+            font-size: 15px;
+            font-weight: 400;
+            margin-top: 0;
         }
 
-        .message.success{
-            background:#e8f5e9;
-            color:#2e7d32;
+        .info-box {
+            background: #f5f7ff;
+            border-left: 4px solid #4f6ef7;
+            padding: 14px 16px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            color: #1e293b;
+            font-size: 14px;
+            line-height: 1.6;
         }
 
-        input{
-            width:100%;
-            height:60px;
-            border:2px solid #e5e7eb;
-            border-radius:12px;
-            outline:none;
-            text-align:center;
-            font-size:28px;
-            font-weight:600;
-            letter-spacing:10px;
-            color:#333;
-            transition:all 0.3s ease;
-            margin-bottom:20px;
+        .info-box strong {
+            color: #4f6ef7;
         }
 
-        input:focus{
-            border-color:#667eea;
-            box-shadow:0 0 0 4px rgba(102,126,234,0.15);
+        /* Message styling */
+        .message {
+            padding: 12px 14px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
-        input::placeholder{
-            letter-spacing:3px;
-            font-size:16px;
-            color:#aaa;
+        .message.error {
+            background: #fee9e7;
+            color: #b91c1c;
+            border-left: 5px solid #dc2626;
         }
 
-        .btn-verify{
-            width:100%;
-            height:55px;
-            border:none;
-            border-radius:12px;
-            background:linear-gradient(135deg, #0037fe);
-            color:white;
-            font-size:16px;
-            font-weight:600;
-            cursor:pointer;
-            transition:all 0.3s ease;
+        .message.success {
+            background: #e6f7ed;
+            color: #0b6e4f;
+            border-left: 5px solid #10b981;
         }
 
-        .btn-verify:hover:not(:disabled){
-            transform:translateY(-2px);
-            box-shadow:0 10px 20px rgba(102,126,234,0.3);
+        .message.error::before {
+            content: "\f06a";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            font-size: 18px;
         }
 
-        .btn-verify:active:not(:disabled){
-            transform:translateY(0);
+        .message.success::before {
+            content: "\f058";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            font-size: 18px;
         }
 
-        .btn-verify:disabled{
-            opacity:0.6;
-            cursor:not-allowed;
-            background:linear-gradient(135deg,#999,#888);
+        /* Countdown styling */
+        #countdown {
+            padding: 14px 16px;
+            border-radius: 12px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            text-align: center;
+            font-size: 15px;
         }
 
-        .btn-new-otp{
-            width:100%;
-            height:55px;
-            border:none;
-            border-radius:12px;
-            background:linear-gradient(135deg, #0037fe);
-            color:white;
-            font-size:16px;
-            font-weight:600;
-            cursor:pointer;
-            transition:all 0.3s ease;
-            margin-top:10px;
+        #countdown.active {
+            background: #fef3c7;
+            color: #92400e;
+            border-left: 5px solid #f59e0b;
         }
 
-        .btn-new-otp:hover{
-            transform:translateY(-2px);
-            box-shadow:0 10px 20px rgba(245,87,108,0.3);
+        #countdown.expired {
+            background: #fee9e7;
+            color: #b91c1c;
+            border-left: 5px solid #dc2626;
         }
 
-        .btn-new-otp:active{
-            transform:translateY(0);
+        /* Form group */
+        .form-group {
+            margin-bottom: 20px;
         }
 
-        .back{
-            margin-top:20px;
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 8px;
+            font-size: 14px;
+            letter-spacing: 0.3px;
         }
 
-        .back a{
-            color:#667eea;
-            text-decoration:none;
-            font-weight:600;
-            transition:0.3s;
+        .form-group label i {
+            margin-right: 8px;
+            color: #4f6ef7;
         }
 
-        .back a:hover{
-            color:#764ba2;
-            text-decoration:underline;
+        .otp-input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 16px;
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: 10px;
+            text-align: center;
+            transition: 0.25s;
+            background: white;
+            font-family: inherit;
+            box-sizing: border-box;
+            color: #0b1e3a;
         }
 
-        #countdown{
-            margin-bottom:20px;
-            padding:12px;
-            border-radius:8px;
-            font-weight:600;
-            transition:all 0.3s ease;
+        .otp-input:focus {
+            outline: none;
+            border-color: #4f6ef7;
+            box-shadow: 0 0 0 4px rgba(79, 110, 247, 0.12);
         }
 
-        #countdown.active{
-            background:#fff3cd;
-            color:#856404;
+        .otp-input:disabled {
+            background: #f1f5f9;
+            cursor: not-allowed;
+            opacity: 0.6;
         }
 
-        #countdown.expired{
-            background:#f8d7da;
-            color:#721c24;
+        .otp-input::placeholder {
+            letter-spacing: 3px;
+            font-size: 16px;
+            font-weight: 400;
+            color: #94a3b8;
         }
 
-        .divider{
-            display:flex;
-            align-items:center;
-            margin:20px 0;
-            color:#999;
-            font-size:14px;
+        .btn-verify {
+            width: 100%;
+            padding: 16px;
+            background: #4f6ef7;
+            border: none;
+            border-radius: 40px;
+            color: white;
+            font-weight: 700;
+            font-size: 17px;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: 0.2s;
+            margin-top: 8px;
+            box-shadow: 0 8px 18px -6px rgba(79, 110, 247, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-verify:hover:not(:disabled) {
+            background: #3b56d9;
+            transform: scale(1.01) translateY(-2px);
+            box-shadow: 0 12px 24px -8px rgba(79, 110, 247, 0.5);
+        }
+
+        .btn-verify:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            background: #94a3b8;
+            box-shadow: none;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 24px 0 20px 0;
+            color: #94a3b8;
+            font-size: 14px;
         }
 
         .divider::before,
-        .divider::after{
-            content:"";
-            flex:1;
-            height:1px;
-            background:#e5e7eb;
+        .divider::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: #e2e8f0;
         }
 
-        .divider::before{
-            margin-right:15px;
+        .divider::before {
+            margin-right: 15px;
         }
 
-        .divider::after{
-            margin-left:15px;
+        .divider::after {
+            margin-left: 15px;
         }
 
-        @media (max-width:480px){
-            .container{
-                padding:30px 20px;
+        .btn-new-otp {
+            width: 100%;
+            padding: 16px;
+            background: #f1f5f9;
+            border: 2px solid #e2e8f0;
+            border-radius: 40px;
+            color: #1e293b;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-new-otp:hover {
+            background: #e2e8f0;
+            border-color: #4f6ef7;
+            color: #4f6ef7;
+            transform: scale(1.01);
+        }
+
+        .btn-new-otp i {
+            color: #4f6ef7;
+        }
+
+        .bar {
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1.5px solid rgba(0, 0, 0, 0.04);
+            display: flex;
+            justify-content: center;
+        }
+
+        .back a {
+            color: #4f6ef7;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 15px;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .back a:hover {
+            color: #2d3f9e;
+            text-decoration: underline;
+        }
+
+        /* ----- image column ----- */
+        .image-col {
+            flex: 1 1 50%;
+            background: #d9e2ef;
+            position: relative;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .image-col img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .image-col .img-placeholder {
+            width: 100%;
+            height: 100%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            background: linear-gradient(145deg, #4f6ef7, #7c8cf5);
+            color: white;
+            font-size: 22px;
+            font-weight: 300;
+            gap: 14px;
+        }
+
+        .image-col .overlay-text {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            color: white;
+            text-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            background: rgba(0,0,0,0.15);
+            backdrop-filter: blur(4px);
+            padding: 14px 24px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 18px;
+            border: 1px solid rgba(255,255,255,0.15);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Responsive */
+        @media (max-width: 720px) {
+            .login-wrapper {
+                flex-direction: column;
+                border-radius: 28px;
             }
 
-            h2{
-                font-size:24px;
+            .login-col {
+                padding: 32px 24px;
+                flex: 1 1 auto;
             }
 
-            input{
-                font-size:24px;
-                letter-spacing:6px;
+            .image-col {
+                min-height: 200px;
+                flex: 1 1 200px;
+            }
+
+            .image-col .overlay-text {
+                bottom: 16px;
+                left: 16px;
+                font-size: 15px;
+                padding: 10px 18px;
+            }
+
+            header {
+                padding: 12px 20px;
+            }
+            .logo img {
+                transform: translateX(0);
+                height: 48px;
+            }
+            .home h2 {
+                font-size: 15px;
+            }
+
+            .welcome-section h2 {
+                font-size: 28px;
+            }
+        }
+
+        @media (max-width: 420px) {
+            .login-col {
+                padding: 24px 16px;
+            }
+            .welcome-section h2 {
+                font-size: 24px;
+            }
+            .welcome-subtitle {
+                font-size: 13px;
+            }
+            .otp-input {
+                font-size: 24px;
+                letter-spacing: 6px;
             }
         }
     </style>
 </head>
 
 <body>
-<header>
-    <div class="logo">
-        <img src="../logo.png" alt="Locker Tech Logo" onerror="this.style.display='none'">
-    </div>
-
-    <div class="home">
-        <a href="../index.php">
-            <i class="fa-solid fa-house"></i>
-            <h2>HOME</h2>
-        </a>
-    </div>
-</header>
-
-<div class="main-content">
-    <div class="container">
-        <h2>Verify OTP</h2>
-
-        <div class="info">
-            We've sent a 6-digit OTP to
-            <strong><?php echo htmlspecialchars($_SESSION['reset_email']); ?></strong>
+    <header>
+        <div class="logo">
+            <img src="../logo.png" alt="Locker Tech Logo" onerror="this.style.display='none'">
         </div>
-
-        <div id="countdown" class="active">
-            OTP expires in 05:00
+        <div class="home">
+            <a href="../index.php"><i class="fas fa-home"></i><h2>HOME</h2></a>
         </div>
+    </header>
 
-        <?php if (!empty($message)) : ?>
-            <div class="message <?php echo $message_type; ?>">
-                <?php echo htmlspecialchars($message); ?>
+    <section class="container">
+        <div class="login-wrapper">
+            <!-- LEFT COLUMN: Verify OTP Form -->
+            <div class="login-col">
+                <div class="welcome-section">
+                    <h2>Verify OTP</h2>
+                    <p class="welcome-subtitle">Enter the verification code sent to your email</p>
+                </div>
+
+                <div class="info-box">
+                    <i class="fas fa-envelope" style="color:#4f6ef7; margin-right:8px;"></i>
+                    We've sent a 6-digit OTP to 
+                    <strong><?php echo htmlspecialchars($_SESSION['reset_email']); ?></strong>
+                </div>
+
+                <div id="countdown" class="active">
+                    OTP expires in 05:00
+                </div>
+
+                <?php if (!empty($message)) : ?>
+                    <div class="message <?php echo $message_type; ?>">
+                        <?php echo htmlspecialchars($message); ?>
+                    </div>
+                <?php endif; ?>
+
+                <form method="POST">
+                    <div class="form-group">
+                        <label for="otpInput"><i class="fas fa-shield-alt"></i> Enter OTP Code</label>
+                        <input
+                            type="text"
+                            name="otp"
+                            id="otpInput"
+                            class="otp-input"
+                            maxlength="6"
+                            pattern="[0-9]{6}"
+                            inputmode="numeric"
+                            placeholder="000000"
+                            autocomplete="off"
+                            required
+                        >
+                    </div>
+
+                    <button type="submit" name="verify_otp" id="verifyBtn" class="btn-verify">
+                        <i class="fas fa-check-circle"></i> Verify OTP
+                    </button>
+                </form>
+
+                <div class="divider">OR</div>
+
+                <form method="POST">
+                    <button type="submit" name="request_new_otp" class="btn-new-otp">
+                        <i class="fas fa-envelope"></i> Request New OTP
+                    </button>
+                </form>
+
+                <div class="bar">
+                    <div class="back">
+                        <a href="login_admin.php"><i class="fas fa-arrow-left"></i> Back to Login</a>
+                    </div>
+                </div>
             </div>
-        <?php endif; ?>
 
-        <form method="POST">
-            <input
-                type="text"
-                name="otp"
-                id="otpInput"
-                maxlength="6"
-                pattern="[0-9]{6}"
-                inputmode="numeric"
-                placeholder="000000"
-                autocomplete="off"
-                required
-            >
-
-            <button type="submit" name="verify_otp" id="verifyBtn" class="btn-verify">
-                Verify OTP
-            </button>
-        </form>
-
-        <div class="divider">OR</div>
-
-        <form method="POST">
-            <button type="submit" name="request_new_otp" class="btn-new-otp">
-                <i class="fa-solid fa-envelope"></i> Request New OTP
-            </button>
-        </form>
-
-        <div class="back">
-            <a href="login_admin.php">Back to Login</a>
+            <!-- RIGHT COLUMN: Image -->
+            <div class="image-col">
+                <img src="../login_admin_background.png" alt="Admin login visual" 
+                     onerror="this.style.display='none'; this.parentElement.querySelector('.img-placeholder').style.display='flex';">
+                <div class="img-placeholder">
+                    <i class="fas fa-building" style="font-size: 54px; opacity:0.7;"></i>
+                    <span style="background:rgba(255,255,255,0.1); padding:8px 22px; border-radius: 60px;">LockerTech</span>
+                </div>
+                <div class="overlay-text">
+                    <i class="fas fa-user-shield"></i> Admin
+                </div>
+            </div>
         </div>
-    </div>
-</div>
+    </section>
+
+    <script>
+        const expireTime = <?php echo $expires_timestamp; ?>;
+        let isExpired = <?php echo $is_expired ? 'true' : 'false'; ?>;
+
+        function updateCountdown() {
+            if (!expireTime) {
+                document.getElementById("countdown").innerHTML = "OTP expiration unavailable";
+                return;
+            }
+
+            const now = new Date().getTime();
+            const distance = expireTime - now;
+
+            if (distance <= 0 || isExpired) {
+                document.getElementById("countdown").innerHTML = "OTP Expired! Please request a new one.";
+                document.getElementById("countdown").className = "expired";
+                
+                // Disable verify button
+                const verifyBtn = document.getElementById("verifyBtn");
+                verifyBtn.disabled = true;
+                verifyBtn.innerHTML = '<i class="fas fa-times-circle"></i> OTP Expired';
+                
+                // Disable OTP input
+                document.getElementById("otpInput").disabled = true;
+                
+                return;
+            }
+
+            const minutes = Math.floor(distance / (1000 * 60));
+            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+            document.getElementById("countdown").innerHTML = 
+                "OTP expires in " +
+                String(minutes).padStart(2, '0') +
+                ":" +
+                String(seconds).padStart(2, '0');
+            
+            document.getElementById("countdown").className = "active";
+        }
+
+        // Initial check
+        if (isExpired) {
+            document.getElementById("countdown").innerHTML = "OTP Expired! Please request a new one.";
+            document.getElementById("countdown").className = "expired";
+            document.getElementById("verifyBtn").disabled = true;
+            document.getElementById("verifyBtn").innerHTML = '<i class="fas fa-times-circle"></i> OTP Expired';
+            document.getElementById("otpInput").disabled = true;
+        }
+
+        updateCountdown();
+        setInterval(updateCountdown, 1000);
+
+        // Handle image fallback
+        const img = document.querySelector('.image-col img');
+        if (img) {
+            img.addEventListener('error', function() {
+                this.style.display = 'none';
+                const placeholder = this.parentElement.querySelector('.img-placeholder');
+                if (placeholder) {
+                    placeholder.style.display = 'flex';
+                }
+            });
+        }
+    </script>
 </body>
-
-<script>
-const expireTime = <?php echo $expires_timestamp; ?>;
-let isExpired = <?php echo $is_expired ? 'true' : 'false'; ?>;
-
-function updateCountdown() {
-    if (!expireTime) {
-        document.getElementById("countdown").innerHTML = "OTP expiration unavailable";
-        return;
-    }
-
-    const now = new Date().getTime();
-    const distance = expireTime - now;
-
-    if (distance <= 0 || isExpired) {
-        document.getElementById("countdown").innerHTML = "OTP Expired! Please request a new one.";
-        document.getElementById("countdown").className = "expired";
-        
-        // Disable verify button
-        const verifyBtn = document.getElementById("verifyBtn");
-        verifyBtn.disabled = true;
-        verifyBtn.textContent = "OTP Expired";
-        
-        // Disable OTP input
-        document.getElementById("otpInput").disabled = true;
-        
-        return;
-    }
-
-    const minutes = Math.floor(distance / (1000 * 60));
-    const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
-    document.getElementById("countdown").innerHTML = 
-        "OTP expires in " +
-        String(minutes).padStart(2, '0') +
-        ":" +
-        String(seconds).padStart(2, '0');
-    
-    document.getElementById("countdown").className = "active";
-}
-
-// Initial check
-if (isExpired) {
-    document.getElementById("countdown").innerHTML = "OTP Expired! Please request a new one.";
-    document.getElementById("countdown").className = "expired";
-    document.getElementById("verifyBtn").disabled = true;
-    document.getElementById("verifyBtn").textContent = "OTP Expired";
-    document.getElementById("otpInput").disabled = true;
-}
-
-updateCountdown();
-setInterval(updateCountdown, 1000);
-
-// Auto submit if OTP is entered completely
-document.getElementById('otpInput').addEventListener('input', function(e) {
-    if (this.value.length === 6 && !document.getElementById('verifyBtn').disabled) {
-        this.form.submit();
-    }
-});
-</script>
 </html>

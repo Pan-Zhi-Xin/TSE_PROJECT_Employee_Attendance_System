@@ -1,6 +1,6 @@
 <?php
 session_start();
-date_default_timezone_set('UTC'); // Critical for UTC consistency
+date_default_timezone_set('UTC'); 
 
 include '../db_connection.php';
 
@@ -12,7 +12,7 @@ require '../PHPMailer/src/PHPMailer.php';
 require '../PHPMailer/src/SMTP.php';
 
 $message = "";
-$email = "";
+$email = ""; // Initialize $email variable
 
 if (isset($_POST['send_otp'])) {
     $email = trim($_POST['email']);
@@ -94,209 +94,423 @@ if (isset($_POST['send_otp'])) {
     <title>Forgot Password</title>
     <script src="https://kit.fontawesome.com/c2f7d169d6.js" crossorigin="anonymous"></script>
     <style>
-        *{
-            margin:0;
-            padding:0;
-            box-sizing:border-box;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        body{
-            font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            min-height:100vh;
-            background: linear-gradient(135deg, #f4f4f4 0%, #f4f4f4 100%);
-            display:flex;
-            flex-direction:column;
+        body {
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: #f0f4fc;
         }
 
-        header{
-            background:#fff;
-            padding:15px 40px;
-            display:flex;
-            justify-content:space-between;
-            align-items:center;
-            box-shadow:0 2px 15px rgba(0,0,0,0.08);
-            z-index:10;
+        /* ----- background with blur ----- */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background: url('../login_admin_background.png') center / cover no-repeat fixed;
+            filter: blur(8px);
+            z-index: -2;
         }
 
-        .logo img{
-            height:60px;
-            width:auto;
+        body::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.25);
+            z-index: -1;
         }
 
-        .home a{
-            text-decoration:none;
-            color:#333;
-            display:flex;
-            align-items:center;
-            gap:10px;
-            font-weight:600;
-            transition:0.3s;
+        /* ----- header ----- */
+        header {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(4px);
+            padding: 12px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+            position: relative;
+            z-index: 5;
         }
 
-        .home a:hover{
-            color:#5170ff;
+        .logo img {
+            transform: translateX(20px);
+            height: 60px;
+            width: auto;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
         }
 
-        .home i{
-            font-size:22px;
+        .home a {
+            text-decoration: none;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+            transition: 0.2s;
+            padding: 6px 14px;
+            border-radius: 40px;
+            background: rgba(255, 255, 255, 0.3);
         }
 
-        .home h2{
-            font-size:16px;
-            margin:0;
+        .home a:hover {
+            color: #4f6ef7;
+            background: rgba(79, 110, 247, 0.08);
         }
 
-        .container{
-            width:100%;
-            max-width:450px;
-            margin:auto;
-            background:#fff;
-            padding:40px;
-            border-radius:20px;
-            box-shadow:0 15px 40px rgba(0,0,0,0.15);
-            animation:fadeIn 0.4s ease;
+        .home i {
+            font-size: 22px;
         }
 
-        .container h2{
-            text-align:center;
-            color:#333;
-            margin-bottom:10px;
-            font-size:28px;
+        .home h2 {
+            font-size: 18px;
+            font-weight: 500;
+            margin: 0;
         }
 
-        .subtitle{
-            text-align:center;
-            color:#777;
-            margin-bottom:30px;
-            font-size:14px;
+        /* ----- main container (split layout) ----- */
+        .container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 30px 20px;
+            position: relative;
+            z-index: 3;
         }
 
-        label{
-            display:block;
-            margin-bottom:8px;
-            font-weight:600;
-            color:#444;
+        .login-wrapper {
+            display: flex;
+            flex-wrap: wrap;
+            max-width: 1100px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(6px);
+            border-radius: 36px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.30);
+            transition: 0.3s;
+            border: 1px solid rgba(255, 255, 255, 0.3);
         }
 
-        input{
-            width:100%;
-            padding:14px 16px;
-            border:2px solid #e5e7eb;
-            border-radius:12px;
-            font-size:15px;
-            transition:0.3s;
-            outline:none;
-            margin-bottom:20px;
+        /* ----- left column: form ----- */
+        .login-col {
+            flex: 1 1 50%;
+            padding: 48px 40px 40px 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(2px);
         }
 
-        input:focus{
-            border-color:#5170ff;
-            box-shadow:0 0 0 4px rgba(81,112,255,0.15);
+        .welcome-section {
+            margin-bottom: 30px;
         }
 
-        button{
-            width:100%;
-            padding:14px;
-            border:none;
-            border-radius:12px;
-            background:linear-gradient(135deg,#5170ff,#7b61ff);
-            color:#fff;
-            font-size:16px;
-            font-weight:600;
-            cursor:pointer;
-            transition:0.3s;
+        .welcome-section h2 {
+            font-size: 32px;
+            font-weight: 700;
+            color: #0b1e3a;
+            letter-spacing: -0.5px;
+            margin-bottom: 6px;
         }
 
-        button:hover{
-            transform:translateY(-2px);
-            box-shadow:0 10px 25px rgba(81,112,255,0.35);
+        .welcome-subtitle {
+            color: #64748b;
+            font-size: 15px;
+            font-weight: 400;
+            margin-top: 0;
         }
 
-        button:active{
-            transform:translateY(0);
+        .form-group {
+            margin-bottom: 20px;
         }
 
-        .message{
-            background:#fff3f3;
-            color:#dc2626;
-            border:1px solid #fecaca;
-            padding:12px;
-            border-radius:10px;
-            text-align:center;
-            margin-bottom:20px;
-            font-size:14px;
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 8px;
+            font-size: 14px;
+            letter-spacing: 0.3px;
         }
 
-        .back{
-            text-align:center;
-            margin-top:20px;
+        .form-group label i {
+            margin-right: 8px;
+            color: #4f6ef7;
         }
 
-        .back a{
-            color:#5170ff;
-            text-decoration:none;
-            font-weight:600;
-            transition:0.3s;
+        .form-group input[type="email"] {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 16px;
+            font-size: 15px;
+            transition: 0.25s;
+            background: white;
+            font-family: inherit;
+            box-sizing: border-box;
         }
 
-        .back a:hover{
-            color:#3b57d1;
-            text-decoration:underline;
+        .form-group input[type="email"]:focus {
+            outline: none;
+            border-color: #4f6ef7;
+            box-shadow: 0 0 0 4px rgba(79, 110, 247, 0.12);
         }
 
-        @keyframes fadeIn{
-            from{
-                opacity:0;
-                transform:translateY(20px);
+        .btn-send {
+            width: 100%;
+            padding: 16px;
+            background: #4f6ef7;
+            border: none;
+            border-radius: 40px;
+            color: white;
+            font-weight: 700;
+            font-size: 17px;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: 0.2s;
+            margin-top: 8px;
+            box-shadow: 0 8px 18px -6px rgba(79, 110, 247, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-send:hover {
+            background: #3b56d9;
+            transform: scale(1.01) translateY(-2px);
+            box-shadow: 0 12px 24px -8px rgba(79, 110, 247, 0.5);
+        }
+
+        .bar {
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1.5px solid rgba(0, 0, 0, 0.04);
+            display: flex;
+            justify-content: center;
+        }
+
+        .back-link a {
+            color: #4f6ef7;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 15px;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .back-link a:hover {
+            color: #2d3f9e;
+            text-decoration: underline;
+        }
+
+        .error-message {
+            background: #fee9e7;
+            color: #b91c1c;
+            padding: 12px 14px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            border-left: 5px solid #dc2626;
+            font-weight: 500;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .error-message::before {
+            content: "\f06a";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            font-size: 18px;
+        }
+
+        /* ----- right column: image  ----- */
+        .image-col {
+            flex: 1 1 50%;
+            background: #d9e2ef;
+            position: relative;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .image-col img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .image-col .img-placeholder {
+            width: 100%;
+            height: 100%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            background: linear-gradient(145deg, #4f6ef7, #7c8cf5);
+            color: white;
+            font-size: 22px;
+            font-weight: 300;
+            gap: 14px;
+        }
+
+        .image-col .overlay-text {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            color: white;
+            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            background: rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(4px);
+            padding: 14px 24px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* ----- responsiveness ----- */
+        @media (max-width: 720px) {
+            .login-wrapper {
+                flex-direction: column;
+                border-radius: 28px;
             }
-            to{
-                opacity:1;
-                transform:translateY(0);
+
+            .login-col {
+                padding: 32px 24px;
+                flex: 1 1 auto;
+            }
+
+            .image-col {
+                min-height: 200px;
+                flex: 1 1 200px;
+            }
+
+            .image-col .overlay-text {
+                bottom: 16px;
+                left: 16px;
+                font-size: 15px;
+                padding: 10px 18px;
+            }
+
+            header {
+                padding: 12px 20px;
+            }
+            .logo img {
+                transform: translateX(0);
+                height: 48px;
+            }
+            .home h2 {
+                font-size: 15px;
+            }
+
+            .welcome-section h2 {
+                font-size: 28px;
             }
         }
 
-        @media(max-width:500px){
-            .container{
-                margin:30px 15px;
-                padding:30px 25px;
+        @media (max-width: 420px) {
+            .login-col {
+                padding: 24px 16px;
             }
-
-            header{
-                padding:15px 20px;
+            .welcome-section h2 {
+                font-size: 24px;
             }
-
-            .logo img{
-                height:50px;
+            .welcome-subtitle {
+                font-size: 13px;
             }
         }
     </style>
 </head>
 <body>
-<header>
+    <header>
         <div class="logo">
             <img src="../logo.png" alt="Locker Tech Logo" onerror="this.style.display='none'">
         </div>
         <div class="home">
             <a href="../index.php"><i class="fa-solid fa-house"></i><h2>HOME</h2></a>
         </div>
-</header>
+    </header>
 
-<div class="container">
-    <h2>Forgot Password</h2>
+    <section class="container">
+        <div class="login-wrapper">
 
-    <?php if (!empty($message)) : ?>
-        <div class="message"><?php echo htmlspecialchars($message); ?></div>
-    <?php endif; ?>
+            <!-- LEFT COLUMN: Form  -->
+            <div class="login-col">
+                <div class="welcome-section">
+                    <h2>Forgot Password</h2>
+                    <p class="welcome-subtitle">We'll send you a one‑time code</p>
+                </div>
 
-    <form method="POST">
-        <label>Email Address</label>
-        <input type="email" name="email" value="<?php echo htmlspecialchars($email); ?>" required>
-        <button type="submit" name="send_otp">Send OTP</button>
-    </form>
+                <?php if (!empty($message)) : ?>
+                    <div class="error-message"><?php echo htmlspecialchars($message); ?></div>
+                <?php endif; ?>
 
-    <div class="back">
-        <a href="login_admin.php">Back to Login</a>
-    </div>
-</div>
+                <form method="POST">
+                    <div class="form-group">
+                        <label for="email"><i class="fas fa-envelope"></i> Email Address</label>
+                        <input type="email" id="email" placeholder="admin@lockertech.com" name="email" value="<?php echo htmlspecialchars($email); ?>" required>
+                    </div>
+
+                    <button type="submit" name="send_otp" class="btn-send">Send OTP</button>
+                </form>
+
+                <div class="bar">
+                    <div class="back-link">
+                        <a href="login_admin.php"><i class="fas fa-arrow-left"></i> Back to Login</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: Image -->
+            <div class="image-col">
+                <img src="../login_admin_background.png" alt="Admin login visual" 
+                     onerror="this.style.display='none'; this.parentElement.querySelector('.img-placeholder').style.display='flex';">
+                <div class="img-placeholder">
+                    <i class="fas fa-building" style="font-size: 54px; opacity:0.7;"></i>
+                    <span style="background:rgba(255,255,255,0.1); padding:8px 22px; border-radius: 60px;">LockerTech</span>
+                </div>
+                <div class="overlay-text">
+                    <i class="fas fa-user-shield"></i> Admin
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <script>
+        (function() {
+            // Handle image fallback (same as login)
+            const img = document.querySelector('.image-col img');
+            if (img) {
+                img.addEventListener('error', function() {
+                    this.style.display = 'none';
+                    const placeholder = this.parentElement.querySelector('.img-placeholder');
+                    if (placeholder) {
+                        placeholder.style.display = 'flex';
+                    }
+                });
+            }
+        })();
+    </script>
 </body>
 </html>
