@@ -17,6 +17,49 @@ $work_start_time_morning = '09:00:00';
 $work_start_time_afternoon = '13:00:00';
 $work_end_time_morning = '12:00:00';
 $work_end_time_afternoon = '18:00:00';
+$current_time = date('H:i:s');
+
+// ========== AUTO-CREATE ABSENT RECORDS FOR THIS EMPLOYEE ==========
+function autoCreateAbsentForEmployee($conn, $employee_id, $today_date, $current_time, $morning_end, $afternoon_end) {
+    $morning_created = 0;
+    $afternoon_created = 0;
+    
+    $create_morning_absent = ($current_time > $morning_end);
+    $create_afternoon_absent = ($current_time > $afternoon_end);
+    
+    if (!$create_morning_absent && !$create_afternoon_absent) {
+        return ['morning' => 0, 'afternoon' => 0];
+    }
+    
+    if ($create_morning_absent) {
+        $check_morning = "SELECT * FROM attendance_records 
+                          WHERE employee_id = '$employee_id' AND record_date = '$today_date' AND session = 'morning'";
+        $morning_result = mysqli_query($conn, $check_morning);
+        if(mysqli_num_rows($morning_result) == 0) {
+            $record_id = 'MNG' . date('Ymd') . str_pad($employee_id, 3, '0', STR_PAD_LEFT);
+            $insert_query = "INSERT INTO attendance_records (record_id, employee_id, record_date, session, status) 
+                             VALUES ('$record_id', '$employee_id', '$today_date', 'morning', 'absent')";
+            if(mysqli_query($conn, $insert_query)) $morning_created++;
+        }
+    }
+    
+    if ($create_afternoon_absent) {
+        $check_afternoon = "SELECT * FROM attendance_records 
+                            WHERE employee_id = '$employee_id' AND record_date = '$today_date' AND session = 'afternoon'";
+        $afternoon_result = mysqli_query($conn, $check_afternoon);
+        if(mysqli_num_rows($afternoon_result) == 0) {
+            $record_id = 'AFT' . date('Ymd') . str_pad($employee_id, 3, '0', STR_PAD_LEFT);
+            $insert_query = "INSERT INTO attendance_records (record_id, employee_id, record_date, session, status) 
+                             VALUES ('$record_id', '$employee_id', '$today_date', 'afternoon', 'absent')";
+            if(mysqli_query($conn, $insert_query)) $afternoon_created++;
+        }
+    }
+    
+    return ['morning' => $morning_created, 'afternoon' => $afternoon_created];
+}
+
+// Run auto-absent creation for this specific employee
+$created = autoCreateAbsentForEmployee($conn, $employee_id, $today, $current_time, $work_end_time_morning, $work_end_time_afternoon);
 
 // Helper functions
 function calculateWorkingHours($check_in_time, $check_out_time) {
