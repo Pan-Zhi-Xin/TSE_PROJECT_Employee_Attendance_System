@@ -96,7 +96,7 @@ function getSessionStatus($check_in_time, $check_out_time, $session, $db_status)
     $is_early = calculateEarlyLeaveMinutes($check_out_time, $session) > 0;
     
     // Check if both late and early leave
-    if($is_late && $is_early) return 'late';
+    if($is_late && $is_early) return 'late_early';
     if($is_late) return 'late';
     if($is_early) return 'left_early';
     return 'present';
@@ -296,7 +296,7 @@ foreach($daily_data as $date => $day) {
         
         .stat-number.present { color: #28a745; }
         .stat-number.late { color: #ffc107; }
-        .stat-number.late-early { color: #e67e22; }
+        .stat-number.late-early { color: #e83e8c; }
         .stat-number.half-day { color: #6f42c1; }
         .stat-number.holiday { color: #007bff; }
         .stat-number.early-left { color: #fd7e14; }
@@ -371,7 +371,7 @@ foreach($daily_data as $date => $day) {
         
         .badge-present { background: #28a745; color: white; }
         .badge-late { background: #ffc107; color: #333; }
-        .badge-late-early { background: #e67e22; color: white; }
+        .badge-late-early { background: #e83e8c; color: white; }
         .badge-half-day { background: #6f42c1; color: white; }
         .badge-holiday { background: #007bff; color: white; }
         .badge-early-left { background: #fd7e14; color: white; }
@@ -486,8 +486,13 @@ foreach($daily_data as $date => $day) {
                                     <?php if($day['morning']): 
                                         $total_day_hours += $day['morning']['working_hours'];
                                         $status = $day['morning']['status'];
-                                        $badge = 'badge-' . str_replace('_', '-', $status);
-                                        $text = ucfirst(str_replace('_', ' ', $status));
+                                        if($status == 'late_early') {
+                                            $badge = 'badge-late-early';
+                                            $text = 'Late + Early';
+                                        } else {
+                                            $badge = 'badge-' . str_replace('_', '-', $status);
+                                            $text = ucfirst(str_replace('_', ' ', $status));
+                                        }
                                     ?>
                                         <div class="session-morning">
                                             <div class="session-title">
@@ -519,8 +524,13 @@ foreach($daily_data as $date => $day) {
                                     <?php if($day['afternoon']): 
                                         $total_day_hours += $day['afternoon']['working_hours'];
                                         $status = $day['afternoon']['status'];
-                                        $badge = 'badge-' . str_replace('_', '-', $status);
-                                        $text = ucfirst(str_replace('_', ' ', $status));
+                                        if($status == 'late_early') {
+                                            $badge = 'badge-late-early';
+                                            $text = 'Late + Early';
+                                        } else {
+                                            $badge = 'badge-' . str_replace('_', '-', $status);
+                                            $text = ucfirst(str_replace('_', ' ', $status));
+                                        }
                                     ?>
                                         <div class="session-afternoon">
                                             <div class="session-title">

@@ -19,6 +19,95 @@ $work_end_time_morning = '12:00:00';
 $work_end_time_afternoon = '18:00:00';
 $current_time = date('H:i:s');
 
+// ========== AUTO FORCE CHECKOUT LOGIC ==========
+function autoCheckoutEmployee($conn, $employee_id, $today, $current_time, $morning_end, $afternoon_end) {
+    $morning_ended = ($current_time > $morning_end);
+    $afternoon_ended = ($current_time > $afternoon_end);
+    
+    $updated_count = 0;
+    
+    // If no session has ended, return immediately
+    if(!$morning_ended && !$afternoon_ended) {
+        return $updated_count;
+    }
+    
+    // Find all records that are checked in but not checked out
+    $open_query = "SELECT * FROM attendance_records 
+                   WHERE employee_id = '$employee_id' 
+                   AND record_date = '$today' 
+                   AND check_in_time IS NOT NULL 
+                   AND check_out_time IS NULL";
+    $open_result = mysqli_query($conn, $open_query);
+    
+    while($open_record = mysqli_fetch_assoc($open_result)) {
+        $session = $open_record['session'];
+        $work_start_time = ($session == 'morning') ? '09:00:00' : '13:00:00';
+        $work_end_time = ($session == 'morning') ? $morning_end : $afternoon_end;
+        $check_in_time = $open_record['check_in_time'];
+        
+        // Check if this session has ended
+        $session_ended = ($session == 'morning') ? $morning_ended : $afternoon_ended;
+        
+        if($session_ended) {
+            // Calculate working hours (from check-in to session end time)
+            $end_datetime = date('Y-m-d', strtotime($check_in_time)) . ' ' . $work_end_time;
+            $working_hours = round((strtotime($end_datetime) - strtotime($check_in_time)) / 3600, 2);
+            
+            // Calculate early leave minutes
+            $early_minutes = 0;
+            $is_early = false;
+            if($current_time < $work_end_time) {
+                $early_minutes = round((strtotime($work_end_time) - strtotime($current_time)) / 60);
+                $is_early = true;
+            }
+            
+            // Calculate late minutes
+            $check_in_hour_only = date('H:i:s', strtotime($check_in_time));
+            $late_minutes = 0;
+            $is_late = false;
+            if($check_in_hour_only > $work_start_time) {
+                $late_minutes = round((strtotime($check_in_hour_only) - strtotime($work_start_time)) / 60);
+                $is_late = true;
+            }
+            
+            // Determine status
+            if($is_late && $is_early) {
+                $status = 'late_early';
+            } elseif($is_late) {
+                $status = 'late';
+            } elseif($is_early) {
+                $status = 'left_early';
+            } else {
+                $status = 'present';
+            }
+            
+            // Force update to Check-out
+            $update_query = "UPDATE attendance_records 
+                             SET check_out_time = '$end_datetime', 
+                                 working_hours = '$working_hours',
+                                 status = '$status'
+                             WHERE employee_id = '$employee_id' 
+                             AND record_date = '$today' 
+                             AND session = '$session'";
+            
+            if(mysqli_query($conn, $update_query)) {
+                $updated_count++;
+                error_log("Auto-checkout for employee $employee_id - $session at " . date('Y-m-d H:i:s'));
+            }
+        }
+    }
+    
+    return $updated_count;
+}
+
+// Execute auto check-out
+$auto_checkout_count = autoCheckoutEmployee($conn, $employee_id, $today, $current_time, $work_end_time_morning, $work_end_time_afternoon);
+
+// If auto check-out occurred, set a message
+if($auto_checkout_count > 0) {
+    $_SESSION['info'] = "⏰ System auto-checkout: $auto_checkout_count session(s) have been automatically checked out.";
+}
+
 // ========== AUTO-CREATE ABSENT RECORDS FOR THIS EMPLOYEE ==========
 function autoCreateAbsentForEmployee($conn, $employee_id, $today_date, $current_time, $morning_end, $afternoon_end) {
     $morning_created = 0;
