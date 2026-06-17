@@ -134,7 +134,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
     }
 
     if ($allUpdated && $updatedCount > 0) {
-        $message = "All reasons submitted successfully (" . $updatedCount . " record" . ($updatedCount > 1 ? "s" : "") . " updated).";
         
         // Refresh abnormal records after update
         $abnormalRecords = [];
@@ -450,8 +449,10 @@ textarea.form-control {
         <div class="reason-card">
             <h2 class="reason-title">📋 Attendance Reason Submission</h2>
 
-            <?php if ($message !== ""): ?>
-                <div class="message"><?php echo htmlspecialchars($message); ?></div>
+            <?php if ($message !== "" && $hasAbnormalRecords): ?>
+                <div class="message">
+                    <?php echo htmlspecialchars($message); ?>
+                </div>
             <?php endif; ?>
 
             <!-- Working Hours Info -->
@@ -649,13 +650,25 @@ textarea.form-control {
                 else {
                     // Check if there are ANY records today
                     if ($hasAnyRecord) {
-                        // Check if any records are present
-                        if ($isPresent) {
+
+                        // Check whether ALL sessions are present
+                        $allPresent = true;
+
+                        foreach ($todayRecords as $record) {
+                            if ($record['status'] !== 'present') {
+                                $allPresent = false;
+                                break;
+                            }
+                        }
+
+                        if ($allPresent && count($todayRecords) >= 2) {
                             ?>
                             <div class="info-box success">
-                                You are marked <strong>Present</strong> for all sessions today. No reason is required.
+                                You are marked <strong>Present</strong> for all sessions today.
+                                <br><small>No reason is required.</small>
                             </div>
                             <?php
+  
                         } else {
                             // Records exist but none are 'present' - they might be absent, half_day, or holiday
                             ?>
