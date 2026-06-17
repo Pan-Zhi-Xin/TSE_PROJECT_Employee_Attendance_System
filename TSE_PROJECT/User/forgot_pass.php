@@ -1,65 +1,97 @@
 <?php
 session_start();
+date_default_timezone_set('UTC');
+
 include '../db_connection.php';
 
-$error = '';
-$email = '';
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $email = trim($_POST["email"]);
-    $password = trim($_POST["password"]);
+require '../PHPMailer/src/Exception.php';
+require '../PHPMailer/src/PHPMailer.php';
+require '../PHPMailer/src/SMTP.php';
 
-    if (empty($email) || empty($password)) {
-        $error = "Both email and password are required.";
+$message = "";
+$email = ""; // Initialize $email variable
+
+if (isset($_POST['send_otp'])) {
+    $email = trim($_POST['email']);
+
+    if (empty($email)) {
+        $message = "Please enter your email.";
     } else {
-        // Escape special characters to prevent SQL injection
         $email = mysqli_real_escape_string($conn, $email);
 
-        // Check if user exists in users table with role employee
-        $sql = "SELECT u.user_id, u.name, u.email, u.password, u.role, u.status,
-                       e.employee_id, e.employee_code, e.department, e.position
+        // Check if employee exists
+        $sql = "SELECT u.user_id, u.name, u.email
                 FROM users u
-                JOIN employees e ON u.user_id = e.user_id
+                INNER JOIN employees e ON u.user_id = e.user_id
                 WHERE u.email = '$email' AND u.role = 'employee'";
 
         $result = mysqli_query($conn, $sql);
 
-        if ($result && mysqli_num_rows($result) > 0) {
+        if (mysqli_num_rows($result) > 0) {
             $user = mysqli_fetch_assoc($result);
+            $user_id = $user['user_id'];
+            $name = $user['name'];
 
-            if ($user["status"] != 'Active') {
-                $error = "Your account has been Inactive, please contact the administrator for more information.";
-            } else if ($password === $user["password"]) {
-                $_SESSION["user_id"] = $user["user_id"];
-                $_SESSION["username"] = $user["name"];
-                $_SESSION["user_name"] = $user["name"];
-                $_SESSION["email"] = $user["email"];
-                $_SESSION["role"] = $user["role"];
-                $_SESSION["employee_id"] = $user["employee_id"];
-                $_SESSION["employee_code"] = $user["employee_code"];
-                $_SESSION["department"] = $user["department"];
-                $_SESSION["position"] = $user["position"];
+            // Generate 6-digit OTP (stored in token field)
+            $otp = rand(100000, 999999);
+            $expires_at = date("Y-m-d H:i:s", strtotime("+5 minutes"));
 
-                // Store in session that we're redirecting
-                $_SESSION['show_loading'] = true;
-                header("Location: dashboard.php");
-                exit();
+            // Insert into password_reset table
+            $insert = mysqli_query($conn, "INSERT INTO password_reset (user_id, email, token, expires_at, is_used)
+                                           VALUES ('$user_id', '$email', '$otp', '$expires_at', 'Active')");
+
+            if (!$insert) {
+                $message = "Database error: Could not save reset request.";
             } else {
-                $error = "Invalid password.";
+                // Send email with OTP
+                try {
+                    $mail = new PHPMailer(true);
+                    $mail->isSMTP();
+                    $mail->Host       = 'smtp.gmail.com';
+                    $mail->SMTPAuth   = true;
+                    $mail->Username = 'panzhixin7256@gmail.com';
+                    $mail->Password = 'hfhy trka fwrs grzt';
+                    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                    $mail->Port       = 587;
+
+                    $mail->setFrom('leeching2565@gmail.com', 'Attendance System');
+                    $mail->addAddress($email, $name);
+                    $mail->isHTML(true);
+                    $mail->Subject = 'Password Reset OTP';
+                    $mail->Body    = "
+                        <h2>Password Reset Request</h2>
+                        <p>Hello <b>$name</b>,</p>
+                        <p>Your OTP code is:</p>
+                        <h1 style='color:#4f6ef7;'>$otp</h1>
+                        <p>This OTP will expire in 5 minutes.</p>
+                        <p>Please do not share this OTP with anyone.</p>
+                    ";
+
+                    $mail->send();
+
+                    // Store data in session and redirect
+                    $_SESSION['reset_email'] = $email;
+                    $_SESSION['reset_user_id'] = $user_id;
+                    header("Location: verify_otp.php");
+                    exit();
+                } catch (Exception $e) {
+                    $message = "Failed to send OTP. Mail Error: " . $mail->ErrorInfo;
+                }
             }
         } else {
-            $error = "No account found with this email.";
+            $message = "No employee account found with this email.";
         }
     }
 }
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Employee Login · LockerTech</title>
+    <title>Forgot Password · Employee</title>
     <script src="https://kit.fontawesome.com/c2f7d169d6.js" crossorigin="anonymous"></script>
     <style>
         * {
@@ -76,7 +108,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             background: #f0f4fc;
         }
 
-        /* ----- background ----- */
+        /* ----- background with blur ----- */
         body::before {
             content: "";
             position: fixed;
@@ -143,7 +175,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             margin: 0;
         }
 
-        /* ----- main container ----- */
+        /* ----- main container (split layout) ----- */
         .container {
             flex: 1;
             display: flex;
@@ -168,7 +200,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             border: 1px solid rgba(255, 255, 255, 0.3);
         }
 
-        /* ----- login form ----- */
+        /* ----- left column: form ----- */
         .login-col {
             flex: 1 1 50%;
             padding: 48px 40px 40px 40px;
@@ -179,7 +211,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             backdrop-filter: blur(2px);
         }
 
-        /* Welcome section styling */
         .welcome-section {
             margin-bottom: 30px;
         }
@@ -199,7 +230,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             margin-top: 0;
         }
 
-        /* Form group for better spacing */
         .form-group {
             margin-bottom: 20px;
         }
@@ -218,8 +248,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             color: #4f6ef7;
         }
 
-        .form-group input[type="email"],
-        .pass-field input {
+        .form-group input[type="email"] {
             width: 100%;
             padding: 14px 16px;
             border: 1.5px solid #e2e8f0;
@@ -231,77 +260,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             box-sizing: border-box;
         }
 
-        .form-group input[type="email"]:focus,
-        .pass-field input:focus {
+        .form-group input[type="email"]:focus {
             outline: none;
             border-color: #4f6ef7;
             box-shadow: 0 0 0 4px rgba(79, 110, 247, 0.12);
         }
 
-        .pass-field {
-            position: relative;
-            width: 100%;
-        }
-
-        .pass-field input {
-            padding-right: 50px;
-            margin-bottom: 0;
-        }
-
-        .toggle-password-wrapper {
-            position: absolute;
-            right: 14px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2;
-            cursor: pointer;
-            flex-shrink: 0;
-            overflow: hidden;
-            margin: 0;
-            padding: 0;
-        }
-
-        #show-password {
-            font-size: 20px;
-            color: #94a3b8;
-            cursor: pointer;
-            transition: color 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 20px;
-            height: 20px;
-            line-height: 20px;
-            pointer-events: none;
-            font-family: "Font Awesome 6 Free";
-            font-weight: 900;
-            font-style: normal;
-            font-variant: normal;
-            text-rendering: auto;
-            -webkit-font-smoothing: antialiased;
-            margin: 0;
-            padding: 0;
-            vertical-align: middle;
-        }
-
-        #show-password::before {
-            display: inline-block;
-            line-height: 1;
-            vertical-align: middle;
-            width: 20px;
-            text-align: center;
-        }
-
-        .toggle-password-wrapper:hover #show-password {
-            color: #4f6ef7;
-        }
-
-        .btn-login {
+        .btn-send {
             width: 100%;
             padding: 16px;
             background: #4f6ef7;
@@ -321,7 +286,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             gap: 10px;
         }
 
-        .btn-login:hover {
+        .btn-send:hover {
             background: #3b56d9;
             transform: scale(1.01) translateY(-2px);
             box-shadow: 0 12px 24px -8px rgba(79, 110, 247, 0.5);
@@ -335,7 +300,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             justify-content: center;
         }
 
-        .forgot_pass a {
+        .back-link a {
             color: #4f6ef7;
             text-decoration: none;
             font-weight: 600;
@@ -346,7 +311,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             gap: 6px;
         }
 
-        .forgot_pass a:hover {
+        .back-link a:hover {
             color: #2d3f9e;
             text-decoration: underline;
         }
@@ -372,6 +337,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             font-size: 18px;
         }
 
+        /* ----- right column: image  ----- */
         .image-col {
             flex: 1 1 50%;
             background: #d9e2ef;
@@ -422,6 +388,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             gap: 10px;
         }
 
+        /* ----- responsiveness ----- */
         @media (max-width: 720px) {
             .login-wrapper {
                 flex-direction: column;
@@ -480,56 +447,41 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <img src="../logo.png" alt="Locker Tech Logo" onerror="this.style.display='none'">
         </div>
         <div class="home">
-            <a href="../index.php"><i class="fas fa-home"></i><h2>HOME</h2></a>
+            <a href="../index.php"><i class="fa-solid fa-house"></i><h2>HOME</h2></a>
         </div>
     </header>
 
     <section class="container">
         <div class="login-wrapper">
 
-            <!-- LEFT COLUMN: Login Form -->
+            <!-- LEFT COLUMN: Form  -->
             <div class="login-col">
-                <div class="frame">
-                    <!-- Welcome Back with proper positioning -->
-                    <div class="welcome-section">
-                        <h2>Welcome Back</h2>
-                        <p class="welcome-subtitle">Sign in to your employee account</p>
-                    </div>
-
-                    <?php if (!empty($error)): ?>
-                        <div class="error-message"><?php echo htmlspecialchars($error); ?></div>
-                    <?php endif; ?>
-
-                    <form method="post" action="">
-                        <!-- Email field with proper positioning -->
-                        <div class="form-group">
-                            <label for="email"><i class="fas fa-envelope"></i> Email Address</label>
-                            <input type="email" id="email" placeholder="employee@lockertech.com" name="email" value="<?php echo htmlspecialchars($email); ?>" required>
-                        </div>
-
-                        <!-- Password field -->
-                        <div class="form-group">
-                            <label for="password"><i class="fas fa-lock"></i> Password</label>
-                            <div class="pass-field">
-                                <input type="password" placeholder="Enter your password" name="password" id="password" required>
-                                <span class="toggle-password-wrapper">
-                                    <i class="fas fa-eye" id="show-password"></i>
-                                </span>
-                            </div>
-                        </div>
-
-                        <button type="submit" class="btn-login">Login</button>
-                    </form>
+                <div class="welcome-section">
+                    <h2>Forgot Password</h2>
+                    <p class="welcome-subtitle">We'll send you a one‑time code</p>
                 </div>
 
+                <?php if (!empty($message)) : ?>
+                    <div class="error-message"><?php echo htmlspecialchars($message); ?></div>
+                <?php endif; ?>
+
+                <form method="POST">
+                    <div class="form-group">
+                        <label for="email"><i class="fas fa-envelope"></i> Email Address</label>
+                        <input type="email" id="email" placeholder="employee@lockertech.com" name="email" value="<?php echo htmlspecialchars($email); ?>" required>
+                    </div>
+
+                    <button type="submit" name="send_otp" class="btn-send">Send OTP</button>
+                </form>
+
                 <div class="bar">
-                    <div class="forgot_pass">
-                        <a href="forgot_pass.php"><i class="fas fa-key"></i> Forgot password?</a>
+                    <div class="back-link">
+                        <a href="login.php"><i class="fas fa-arrow-left"></i> Back to Login</a>
                     </div>
                 </div>
             </div>
 
-            <!-- Image -->
+            <!-- RIGHT COLUMN: Image -->
             <div class="image-col">
                 <img src="../login_background.jpeg" alt="Employee login visual"
                      onerror="this.style.display='none'; this.parentElement.querySelector('.img-placeholder').style.display='flex';">
@@ -541,38 +493,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <i class="fas fa-user"></i> Employee
                 </div>
             </div>
+
         </div>
     </section>
 
     <script>
         (function() {
-            // Toggle password visibility
-            const passwordInput = document.getElementById('password');
-            const toggleWrapper = document.querySelector('.toggle-password-wrapper');
-            const toggleIcon = document.getElementById('show-password');
-
-            if (toggleWrapper && passwordInput && toggleIcon) {
-                toggleWrapper.addEventListener('click', function(e) {
-                    e.preventDefault();
-
-                    // Toggle password visibility
-                    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-                    passwordInput.setAttribute('type', type);
-
-                    // Toggle between fa-eye and fa-eye-slash
-                    if (toggleIcon.classList.contains('fa-eye')) {
-                        toggleIcon.classList.remove('fa-eye');
-                        toggleIcon.classList.add('fa-eye-slash');
-                    } else {
-                        toggleIcon.classList.remove('fa-eye-slash');
-                        toggleIcon.classList.add('fa-eye');
-                    }
-
-                    passwordInput.focus({ preventScroll: true });
-                });
-            }
-
-            // Handle image fallback
+            // Handle image fallback 
             const img = document.querySelector('.image-col img');
             if (img) {
                 img.addEventListener('error', function() {
@@ -583,10 +510,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     }
                 });
             }
-
-            <?php if (!empty($error) && strpos($error, 'Inactive') !== false): ?>
-                alert("<?php echo htmlspecialchars($error); ?>");
-            <?php endif; ?>
         })();
     </script>
 </body>
