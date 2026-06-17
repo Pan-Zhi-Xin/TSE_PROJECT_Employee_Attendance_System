@@ -159,6 +159,7 @@ img {
 .status-half-day { background: #6f42c1; color: white; }
 .status-holiday { background: #007bff; color: white; }
 .status-early-left { background: #fd7e14; color: white; }
+.status-late-early {background: #e83e8c; color: white;}
 
 .session-morning { 
     background: #e3f2fd; 
@@ -201,6 +202,7 @@ img {
 .section-title.summary {
     background: #f3e5f5;
     color: #6a1b9a;
+    text-align: center;
 }
 
 .no-data {
