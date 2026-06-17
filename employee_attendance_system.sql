@@ -58,7 +58,7 @@ CREATE TABLE `attendance_records` (
   `session` enum('morning','afternoon') NOT NULL,
   `check_in_time` datetime DEFAULT NULL,
   `check_out_time` datetime DEFAULT NULL,
-  `status` enum('present','late','absent','half_day','holiday','left_early') DEFAULT 'absent',
+  `status` enum('present','late','absent','half_day','holiday','left_early','late_early') DEFAULT 'absent',
   `late_minutes` int(11) DEFAULT 0,
   `working_hours` decimal(5,2) DEFAULT 0.00,
   `notes` text DEFAULT NULL,

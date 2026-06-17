@@ -136,6 +136,7 @@ body {
 .status-half-day { background: #6f42c1; color: white; }
 .status-holiday { background: #007bff; color: white; }
 .status-early-left { background: #fd7e14; color: white; }
+.status-late-early {background: #e83e8c; color: white;}
 
 /* Summary Cards Styles */
 .summary-cards {
@@ -211,6 +212,7 @@ body {
 .stat-value.present { color: #28a745; }
 .stat-value.late { color: #ffc107; }
 .stat-value.early-left { color: #fd7e14; }
+.stat-value.late-early {color: #e83e8c;}
 .stat-value.half-day { color: #6f42c1; }
 .stat-value.holiday { color: #007bff; }
 .stat-value.absent { color: #dc3545; }
