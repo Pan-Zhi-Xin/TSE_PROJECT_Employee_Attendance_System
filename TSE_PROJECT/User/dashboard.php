@@ -706,7 +706,7 @@ unset($_SESSION['checkin_time']);
             </div>
             <div class="modal-body">
                 <div class="info-box" id="checkoutInfo"></div>
-                <div class="warning-text">Make sure you have completed all your tasks</div>
+                <div class="warning-text">Once you check out, you cannot check in again for this session</div>
             </div>
             <div class="modal-footer">
                 <button class="btn-confirm" onclick="confirmCheckout()">Yes, Check Out</button>
