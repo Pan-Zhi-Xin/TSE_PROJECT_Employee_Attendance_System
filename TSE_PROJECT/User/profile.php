@@ -11,10 +11,57 @@ if(!isset($_SESSION['user_id']) || $_SESSION['role'] != 'employee') {
     exit();
 }
 
+// Handle AJAX requests for real-time validation
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['check_availability'])) {
+    $type = $_POST['type'];
+    $value = trim($_POST['value']);
+    $exists = false;
+    $is_valid_format = true;
+    $error_message = '';
+
+    if ($type === 'phone') {
+        if (!preg_match("/^[0-9]{10,11}$/", $value)) {
+            $is_valid_format = false;
+            $error_message = "Phone must contain only numbers (10 or 11 digits)";
+        } else {
+            // Check in admins table
+            $sql = "SELECT contact_number FROM admins WHERE contact_number = ?";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("s", $value);
+            $stmt->execute();
+            $stmt->store_result();
+            $exists = $stmt->num_rows > 0;
+            $stmt->close();
+            
+            // If not found in admins, check in employees table (excluding current employee)
+            if (!$exists) {
+                $sql = "SELECT contact_number FROM employees WHERE contact_number = ? AND employee_id != ?";
+                $stmt = $conn->prepare($sql);
+                $stmt->bind_param("si", $value, $_SESSION['employee_id']);
+                $stmt->execute();
+                $stmt->store_result();
+                $exists = $stmt->num_rows > 0;
+                $stmt->close();
+            }
+            
+            if ($exists) {
+                $error_message = "This contact number is already registered.";
+            }
+        }
+    }
+
+    echo json_encode(['exists' => $exists, 'valid_format' => $is_valid_format, 'message' => $error_message]);
+    exit();
+}
+
 $user_id = $_SESSION['user_id'];
 $employee_id = $_SESSION['employee_id'];
 $success_message = '';
 $error_message = '';
+
+// Store validation errors for each field
+$contact_error = '';
+$address_error = '';
 
 // Password validation function
 function validatePassword($password) {
@@ -42,19 +89,84 @@ function validatePassword($password) {
     return $errors;
 }
 
+function validateContactNumber($contact) {
+    if(empty($contact)) {
+        return "Contact number is required.";
+    }
+    if(!preg_match("/^[0-9]{10,11}$/", $contact)) {
+        return "Contact number must contain only numbers (10 or 11 digits). No spaces, hyphens, or + signs allowed.";
+    }
+    return "";
+}
+
+function validateContactExists($contact, $conn, $current_employee_id) {
+    // Check in admins table
+    $sql = "SELECT contact_number FROM admins WHERE contact_number = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("s", $contact);
+    $stmt->execute();
+    $stmt->store_result();
+    $exists = $stmt->num_rows > 0;
+    $stmt->close();
+    
+    // If not found in admins, check in employees table (excluding current employee)
+    if (!$exists) {
+        $sql = "SELECT contact_number FROM employees WHERE contact_number = ? AND employee_id != ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("si", $contact, $current_employee_id);
+        $stmt->execute();
+        $stmt->store_result();
+        $exists = $stmt->num_rows > 0;
+        $stmt->close();
+    }
+    
+    if($exists) {
+        return "This contact number is already registered.";
+    }
+    return "";
+}
+
+function validateAddress($address) {
+    if(empty($address)) {
+        return "Address is required.";
+    }
+    if(strlen($address) < 10) {
+        return "Please enter a complete address (at least 10 characters).";
+    }
+    if(strlen($address) > 255) {
+        return "Address cannot exceed 255 characters.";
+    }
+    return "";
+}
+
 // Handle profile update
 if($_SERVER['REQUEST_METHOD'] == 'POST') {
     if(isset($_POST['update_profile'])) {
-        $contact_number = mysqli_real_escape_string($conn, $_POST['contact_number']);
-        $address = mysqli_real_escape_string($conn, $_POST['address']);
+        $contact_number = mysqli_real_escape_string($conn, trim($_POST['contact_number']));
+        $address = mysqli_real_escape_string($conn, trim($_POST['address']));
         
-        // Update employee table only (name and email not editable)
-        $update_employee = "UPDATE employees SET contact_number = '$contact_number', address = '$address' 
-                            WHERE employee_id = '$employee_id'";
-        if(mysqli_query($conn, $update_employee)) {
-            $success_message = "Profile updated successfully!";
+        // Validate fields
+        $contact_error = validateContactNumber($contact_number);
+        $contact_exists_error = validateContactExists($contact_number, $conn, $employee_id);
+        $address_error = validateAddress($address);
+        
+        // Combine contact errors
+        if(empty($contact_error) && !empty($contact_exists_error)) {
+            $contact_error = $contact_exists_error;
+        }
+        
+        // Check if any validation errors exist
+        if(empty($contact_error) && empty($address_error)) {
+            // Update employee table
+            $update_employee = "UPDATE employees SET contact_number = '$contact_number', address = '$address' 
+                                WHERE employee_id = '$employee_id'";
+            if(mysqli_query($conn, $update_employee)) {
+                $success_message = "Profile updated successfully!";
+            } else {
+                $error_message = "Error updating profile: " . mysqli_error($conn);
+            }
         } else {
-            $error_message = "Error updating profile: " . mysqli_error($conn);
+            $error_message = "Please correct the errors below.";
         }
     }
     
@@ -72,7 +184,6 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
         if($current_password != $user_data['password']) {
             $error_message = "Current password is incorrect!";
         } else {
-            // Validate new password
             $validation_errors = validatePassword($new_password);
             
             if(!empty($validation_errors)) {
@@ -97,16 +208,11 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
         $filetype = pathinfo($filename, PATHINFO_EXTENSION);
         $filesize = $_FILES['profile_picture']['size'];
         
-        // Validate file type
         if(!in_array(strtolower($filetype), $allowed)) {
             $error_message = "Only JPG, JPEG, PNG, GIF files are allowed!";
-        }
-        // Validate file size (max 2MB)
-        elseif($filesize > 2 * 1024 * 1024) {
+        } elseif($filesize > 2 * 1024 * 1024) {
             $error_message = "File size too large! Maximum 2MB allowed.";
-        }
-        else {
-            // Get current profile picture before updating
+        } else {
             $current_pic_query = "SELECT profile_picture FROM users WHERE user_id = '$user_id'";
             $current_pic_result = mysqli_query($conn, $current_pic_query);
             $current_user = mysqli_fetch_assoc($current_pic_result);
@@ -115,12 +221,10 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
             $new_filename = "user_" . $user_id . "_" . time() . "." . $filetype;
             $upload_path = "../profile_picture/" . $new_filename;
             
-            // Create directory if not exists
             if(!file_exists("../profile_picture/")) {
                 mkdir("../profile_picture/", 0777, true);
             }
             
-            // Delete old profile picture if exists
             if(!empty($old_picture) && file_exists("../profile_picture/" . $old_picture)) {
                 unlink("../profile_picture/" . $old_picture);
             }
@@ -161,331 +265,9 @@ if(empty($profile_pic_filename) || !file_exists($profile_pic)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Profile - Attendance System</title>
+    <title>My Profile - Employee</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            background: #f0f2f5;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        .main-container {
-            width: 85%;
-            max-width: 1200px;
-            margin: 100px auto 40px;
-            padding: 0 20px;
-        }
-        
-        /* Profile Container */
-        .profile-container {
-            display: grid;
-            grid-template-columns: 350px 1fr;
-            gap: 25px;
-        }
-        
-        /* Profile Sidebar */
-        .profile-sidebar {
-            background: white;
-            border-radius: 12px;
-            padding: 25px;
-            text-align: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            height: fit-content;
-        }
-        
-        .profile-avatar {
-            position: relative;
-            width: 150px;
-            height: 150px;
-            margin: 0 auto 20px;
-            border-radius: 50%;
-            overflow: hidden;
-            border: 4px solid #007bff;
-        }
-        
-        .profile-avatar img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        /* Hidden file input */
-        #profilePicInput {
-            display: none;
-        }
-        
-        .upload-btn {
-            background: #007bff;
-            color: white;
-            padding: 8px 15px;
-            border-radius: 25px;
-            cursor: pointer;
-            font-size: 12px;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            margin-top: 10px;
-            transition: all 0.3s;
-            border: none;
-        }
-        
-        .upload-btn:hover {
-            background: #0056b3;
-        }
-        
-        /* File info text */
-        .file-info {
-            font-size: 11px;
-            color: #999;
-            margin-top: 8px;
-        }
-        
-        .employee-code {
-            background: #e9ecef;
-            padding: 10px;
-            border-radius: 8px;
-            margin: 15px 0;
-            font-size: 14px;
-        }
-        
-        .employee-code span {
-            color: #666;
-        }
-        
-        .employee-code strong {
-            color: #007bff;
-        }
-        
-        /* Profile Main Content */
-        .profile-main {
-            background: white;
-            border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        }
-        
-        .section-title {
-            font-size: 18px;
-            font-weight: bold;
-            color: #333;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #007bff;
-            margin-bottom: 20px;
-            display: inline-block;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: #555;
-        }
-        
-        .form-group input,
-        .form-group textarea {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: all 0.3s;
-            font-family: inherit;
-        }
-        
-        .form-group input:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: #007bff;
-        }
-        
-        .form-group input[readonly] {
-            background: #e9ecef;
-            cursor: not-allowed;
-        }
-        
-        .form-group textarea {
-            resize: vertical;
-            min-height: 100px;
-        }
-        
-        /* Password Field with Eye Icon */
-        .pass-wrapper {
-            position: relative;
-        }
-        
-        .pass-wrapper input {
-            width: 100%;
-            padding: 10px 12px;
-            padding-right: 40px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: all 0.3s;
-        }
-        
-        .pass-wrapper input:focus {
-            outline: none;
-            border-color: #007bff;
-        }
-        
-        .toggle-password {
-            position: absolute;
-            right: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            cursor: pointer;
-            color: #999;
-            transition: color 0.3s;
-            font-size: 16px;
-        }
-        
-        .toggle-password:hover {
-            color: #007bff;
-        }
-        
-        /* Error message for password match */
-        .error-message-small {
-            color: #dc3545;
-            font-size: 12px;
-            margin-top: 5px;
-            display: none;
-        }
-        
-        .error-message-small.show {
-            display: block;
-        }
-        
-        .btn-primary {
-            background: #007bff;
-            color: white;
-            border: none;
-            padding: 10px 25px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-            transition: all 0.3s;
-        }
-        
-        .btn-primary:hover {
-            background: #0056b3;
-        }
-        
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-            border: none;
-            padding: 10px 25px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-            transition: all 0.3s;
-        }
-        
-        .btn-secondary.active {
-            background: #007bff;
-        }
-        
-        .btn-secondary.active:hover {
-            background: #0056b3;
-        }
-        
-        .btn-secondary:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-        
-        .alert-success {
-            background: #d4edda;
-            color: #155724;
-            padding: 12px 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border: 1px solid #c3e6cb;
-        }
-        
-        .alert-error {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 12px 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border: 1px solid #f5c6cb;
-        }
-        
-        .row-2 {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-        }
-        
-        /* Password fields */
-        .password-fields {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-        
-        /* Password Requirements */
-        .password-requirements {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 15px;
-            margin-top: 10px;
-            border: 1px solid #e9ecef;
-        }
-        
-        .password-requirements h4 {
-            font-size: 14px;
-            color: #333;
-            margin-bottom: 10px;
-        }
-        
-        .password-requirements ul {
-            list-style: none;
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
-        }
-        
-        .password-requirements li {
-            font-size: 12px;
-            color: #666;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .password-requirements li i {
-            font-size: 8px;
-            color: #999;
-        }
-        
-        .password-requirements li.valid i {
-            color: #28a745;
-        }
-        
-        .password-requirements li.valid span {
-            color: #28a745;
-        }
-        
-        hr {
-            margin: 25px 0;
-            border: none;
-            border-top: 1px solid #eee;
-        }
-    </style>
+    <link rel="stylesheet" href="../Admin/profile_both.css">
 </head>
 <body>
 
@@ -515,12 +297,12 @@ if(empty($profile_pic_filename) || !file_exists($profile_pic)) {
                 </div>
             </form>
             
-            <div class="employee-code">
+            <div class="code-section">
                 <span>Employee Code:</span><br>
                 <strong><?php echo $user['employee_code']; ?></strong>
             </div>
             
-            <div class="employee-code">
+            <div class="code-section">
                 <span>Employment Date:</span><br>
                 <strong><?php echo date('d-m-Y', strtotime($user['employment_date'])); ?></strong>
             </div>
@@ -530,7 +312,7 @@ if(empty($profile_pic_filename) || !file_exists($profile_pic)) {
         <div class="profile-main">
             <!-- Personal Information -->
             <div class="section-title">Personal Information</div>
-            <form method="POST" action="">
+            <form method="POST" action="" id="profileForm">
                 <div class="row-2">
                     <div class="form-group">
                         <label>Full Name</label>
@@ -555,14 +337,18 @@ if(empty($profile_pic_filename) || !file_exists($profile_pic)) {
                 
                 <div class="row-2">
                     <div class="form-group">
-                        <label>Contact Number</label>
-                        <input type="text" name="contact_number" value="<?php echo htmlspecialchars($user['contact_number'] ?? ''); ?>">
+                        <label>Contact Number <span class="required">*</span></label>
+                        <input type="text" name="contact_number" id="contactNumber" 
+                               value="<?php echo isset($_POST['contact_number']) ? htmlspecialchars($_POST['contact_number']) : htmlspecialchars($user['contact_number']); ?>" 
+                               placeholder="0123456789 (10 or 11 digits)" required>
+                        <div id="contactError" class="error-message"><?php echo $contact_error; ?></div>
                     </div>
                     <div class="form-group">
-                        <label>Address</label>
-                        <textarea name="address" rows="4"><?php echo htmlspecialchars($user['address'] ?? ''); ?></textarea>
+                        <label>Address <span class="required">*</span></label>
+                        <textarea name="address" id="address" rows="4" required><?php echo isset($_POST['address']) ? htmlspecialchars($_POST['address']) : htmlspecialchars($user['address'] ?? ''); ?></textarea>
+                        <div id="addressError" class="error-message"><?php echo $address_error; ?></div>
                     </div>
-                </div>
+                </div> 
                 
                 <button type="submit" name="update_profile" class="btn-primary">Update Profile</button>
             </form>
@@ -617,6 +403,123 @@ if(empty($profile_pic_filename) || !file_exists($profile_pic)) {
 </div>
 
 <script>
+    // Flags to track if phone is available
+    let isPhoneAvailable = true;
+    
+    function checkAvailability(type, value) {
+        const errorElement = document.getElementById(`${type}Error`);
+        
+        if (!value.trim()) {
+            if (type === 'phone') {
+                isPhoneAvailable = true;
+                errorElement.innerHTML = '';
+            }
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('check_availability', 'true');
+        formData.append('type', type);
+        formData.append('value', value);
+
+        fetch(window.location.href, {
+            method: 'POST',
+            body: formData,
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.valid_format) {
+                errorElement.innerHTML = data.message;
+                if (type === 'phone') isPhoneAvailable = false;
+            } else if (data.exists) {
+                errorElement.innerHTML = data.message;
+                if (type === 'phone') isPhoneAvailable = false;
+            } else {
+                errorElement.innerHTML = '';
+                if (type === 'phone') isPhoneAvailable = true;
+            }
+        })
+        .catch(error => {
+            console.error('Error checking availability:', error);
+            if (type === 'phone') isPhoneAvailable = false;
+        });
+    }
+
+    function validateContact() {
+        const value = document.getElementById('contactNumber').value;
+        const errorDiv = document.getElementById('contactError');
+        
+        if (!value) {
+            errorDiv.innerHTML = "Contact number is required.";
+            isPhoneAvailable = false;
+            return false;
+        } else if (!/^[0-9]{10,11}$/.test(value)) {
+            errorDiv.innerHTML = "Contact number must contain only numbers (10 or 11 digits). No spaces & special characters allowed.";
+            isPhoneAvailable = false;
+            return false;
+        } else {
+            errorDiv.innerHTML = "";
+            isPhoneAvailable = true;
+            checkAvailability('phone', value);
+            return true;
+        }
+    }
+
+    function validateAddress() {
+        const value = document.getElementById('address').value;
+        const errorDiv = document.getElementById('addressError');
+        
+        if (!value) {
+            errorDiv.innerHTML = "Address is required.";
+            return false;
+        } else if (value.length < 10) {
+            errorDiv.innerHTML = "Please enter a complete address (at least 10 characters).";
+            return false;
+        } else if (value.length > 255) {
+            errorDiv.innerHTML = "Address cannot exceed 255 characters.";
+            return false;
+        } else {
+            errorDiv.innerHTML = "";
+            return true;
+        }
+    }
+
+    // Debounce function for phone
+    let phoneTimeout;
+    
+    document.getElementById('contactNumber').addEventListener('input', function() {
+        clearTimeout(phoneTimeout);
+        phoneTimeout = setTimeout(validateContact, 500);
+    });
+    
+    document.getElementById('address').addEventListener('input', validateAddress);
+
+    // Form submission validation for profile update
+    document.getElementById('profileForm').addEventListener('submit', function(e) {
+        let isValid = true;
+        let errorMessages = [];
+        
+        if (!validateContact()) {
+            isValid = false;
+            errorMessages.push("- Phone number is invalid or missing");
+        }
+        if (!validateAddress()) {
+            isValid = false;
+            errorMessages.push("- Address is invalid or missing");
+        }
+        
+        // Check if phone already exists
+        if (!isPhoneAvailable) {
+            isValid = false;
+            errorMessages.push("- Phone number already exists. Please use a different number.");
+        }
+        
+        if (!isValid) {
+            e.preventDefault();
+            alert("Please correct the following errors:\n" + errorMessages.join("\n"));
+        }
+    });
+    
     // Profile Picture Upload Validation
     document.getElementById('profilePicInput').addEventListener('change', function(e) {
         const file = this.files[0];
@@ -624,34 +527,30 @@ if(empty($profile_pic_filename) || !file_exists($profile_pic)) {
         const maxSize = 2 * 1024 * 1024; // 2MB
         
         if(file) {
-            // Validate file type
             if(!allowedTypes.includes(file.type)) {
                 alert('Invalid file type! Please upload JPG, JPEG, PNG, or GIF files only.');
                 this.value = '';
                 return;
             }
             
-            // Validate file size
             if(file.size > maxSize) {
                 alert('File too large! Maximum size is 2MB.');
                 this.value = '';
                 return;
             }
             
-            // Preview image
             const reader = new FileReader();
             reader.onload = function(e) {
                 document.getElementById('profileImage').src = e.target.result;
             };
             reader.readAsDataURL(file);
             
-            // Auto submit form
             const form = document.getElementById('profilePicForm');
             form.submit();
         }
     });
     
-    // Toggle password visibility for all password fields
+    // Toggle password visibility
     document.querySelectorAll('.toggle-password').forEach(function(icon) {
         icon.addEventListener('click', function() {
             const targetId = this.getAttribute('data-target');
@@ -660,25 +559,20 @@ if(empty($profile_pic_filename) || !file_exists($profile_pic)) {
             if (input) {
                 const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
                 input.setAttribute('type', type);
-                
-                // Toggle eye icon
                 this.classList.toggle('fa-eye');
                 this.classList.toggle('fa-eye-slash');
-                
-                // Keep focus on input
                 input.focus();
             }
         });
     });
     
-    // Get all required elements
+    // Password validation
     const currentPassword = document.getElementById('currentPassword');
     const newPassword = document.getElementById('newPassword');
     const confirmPassword = document.getElementById('confirmPassword');
     const changePasswordBtn = document.getElementById('changePasswordBtn');
     const passwordMatchError = document.getElementById('passwordMatchError');
     
-    // Requirement elements
     const reqLength = document.getElementById('req-length');
     const reqUpper = document.getElementById('req-upper');
     const reqLower = document.getElementById('req-lower');
@@ -686,11 +580,9 @@ if(empty($profile_pic_filename) || !file_exists($profile_pic)) {
     const reqSpecial = document.getElementById('req-special');
     const reqSpace = document.getElementById('req-space');
     
-    // Function to validate password requirements
     function checkPasswordRequirements(password) {
         let allValid = true;
         
-        // Check length
         if(password.length >= 8) {
             reqLength.classList.add('valid');
         } else {
@@ -698,7 +590,6 @@ if(empty($profile_pic_filename) || !file_exists($profile_pic)) {
             allValid = false;
         }
         
-        // Check uppercase
         if(/[A-Z]/.test(password)) {
             reqUpper.classList.add('valid');
         } else {
@@ -706,7 +597,6 @@ if(empty($profile_pic_filename) || !file_exists($profile_pic)) {
             allValid = false;
         }
         
-        // Check lowercase
         if(/[a-z]/.test(password)) {
             reqLower.classList.add('valid');
         } else {
@@ -714,7 +604,6 @@ if(empty($profile_pic_filename) || !file_exists($profile_pic)) {
             allValid = false;
         }
         
-        // Check number
         if(/[0-9]/.test(password)) {
             reqNumber.classList.add('valid');
         } else {
@@ -722,7 +611,6 @@ if(empty($profile_pic_filename) || !file_exists($profile_pic)) {
             allValid = false;
         }
         
-        // Check special character
         if(/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
             reqSpecial.classList.add('valid');
         } else {
@@ -730,7 +618,6 @@ if(empty($profile_pic_filename) || !file_exists($profile_pic)) {
             allValid = false;
         }
         
-        // Check no spaces
         if(!/\s/.test(password)) {
             reqSpace.classList.add('valid');
         } else {
@@ -741,7 +628,6 @@ if(empty($profile_pic_filename) || !file_exists($profile_pic)) {
         return allValid;
     }
     
-    // Function to check if passwords match
     function checkPasswordsMatch() {
         const newPass = newPassword.value;
         const confirmPass = confirmPassword.value;
@@ -764,19 +650,16 @@ if(empty($profile_pic_filename) || !file_exists($profile_pic)) {
         }
     }
     
-    // Function to check if current password is entered
     function checkCurrentPassword() {
         return currentPassword.value.trim() !== '';
     }
     
-    // Main validation function
     function validateAllFields() {
         const hasCurrentPassword = checkCurrentPassword();
         const isPasswordValid = checkPasswordRequirements(newPassword.value);
         const doPasswordsMatch = checkPasswordsMatch();
         const hasNewPassword = newPassword.value.trim() !== '';
         
-        // Enable button only if all conditions are met
         if(hasCurrentPassword && hasNewPassword && isPasswordValid && doPasswordsMatch) {
             changePasswordBtn.disabled = false;
             changePasswordBtn.classList.add('active');
@@ -786,7 +669,6 @@ if(empty($profile_pic_filename) || !file_exists($profile_pic)) {
         }
     }
     
-    // Real-time validation events
     currentPassword.addEventListener('input', validateAllFields);
     newPassword.addEventListener('input', function() {
         checkPasswordRequirements(this.value);
@@ -798,10 +680,8 @@ if(empty($profile_pic_filename) || !file_exists($profile_pic)) {
         validateAllFields();
     });
     
-    // Initial validation
     validateAllFields();
     
-    // Form submission validation
     document.getElementById('passwordForm').addEventListener('submit', function(e) {
         const password = newPassword.value;
         const errors = [];

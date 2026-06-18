@@ -1,0 +1,384 @@
+/* ===== RESET & BASE ===== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #f0f2f5;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* ===== MAIN CONTAINER ===== */
+.main-container {
+    width: 85%;
+    max-width: 1200px;
+    margin: 100px auto 40px;
+    padding: 0 20px;
+}
+
+/* ===== PROFILE CONTAINER ===== */
+.profile-container {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    gap: 25px;
+}
+
+/* ===== PROFILE SIDEBAR ===== */
+.profile-sidebar {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    height: fit-content;
+}
+
+.profile-avatar {
+    position: relative;
+    width: 150px;
+    height: 150px;
+    margin: 0 auto 20px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 4px solid #007bff;
+}
+
+.profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* ===== PROFILE PICTURE UPLOAD ===== */
+#profilePicInput {
+    display: none;
+}
+
+.upload-btn {
+    background: #007bff;
+    color: white;
+    padding: 8px 15px;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 10px;
+    transition: all 0.3s;
+    border: none;
+}
+
+.upload-btn:hover {
+    background: #0056b3;
+}
+
+.file-info {
+    font-size: 11px;
+    color: #999;
+    margin-top: 8px;
+}
+
+/* ===== ADMIN CODE SECTION ===== */
+.admin-code {
+    background: #e9ecef;
+    padding: 10px;
+    border-radius: 8px;
+    margin: 15px 0;
+    font-size: 14px;
+}
+
+.admin-code span {
+    color: #666;
+}
+
+.admin-code strong {
+    color: #007bff;
+}
+
+/* ===== PROFILE MAIN CONTENT ===== */
+.profile-main {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* ===== SECTION TITLE ===== */
+.section-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #007bff;
+    margin-bottom: 20px;
+    display: inline-block;
+}
+
+/* ===== FORM ELEMENTS ===== */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #555;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: all 0.3s;
+    font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #007bff;
+}
+
+.form-group input[readonly] {
+    background: #e9ecef;
+    cursor: not-allowed;
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+/* ===== ERROR MESSAGES ===== */
+.error-message {
+    color: #dc3545;
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+/* ===== PASSWORD FIELD ===== */
+.pass-wrapper {
+    position: relative;
+}
+
+.pass-wrapper input {
+    width: 100%;
+    padding: 10px 12px;
+    padding-right: 40px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: all 0.3s;
+}
+
+.pass-wrapper input:focus {
+    outline: none;
+    border-color: #007bff;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #999;
+    transition: color 0.3s;
+    font-size: 16px;
+}
+
+.toggle-password:hover {
+    color: #007bff;
+}
+
+/* ===== PASSWORD MATCH ERROR ===== */
+.error-message-small {
+    color: #dc3545;
+    font-size: 12px;
+    margin-top: 5px;
+    display: none;
+}
+
+.error-message-small.show {
+    display: block;
+}
+
+/* ===== BUTTONS ===== */
+.btn-primary {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    transition: all 0.3s;
+}
+
+.btn-primary:hover {
+    background: #0056b3;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    transition: all 0.3s;
+}
+
+.btn-secondary.active {
+    background: #007bff;
+}
+
+.btn-secondary.active:hover {
+    background: #0056b3;
+}
+
+.btn-secondary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ===== ALERTS ===== */
+.alert-success {
+    background: #d4edda;
+    color: #155724;
+    padding: 12px 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #c3e6cb;
+}
+
+.alert-error {
+    background: #f8d7da;
+    color: #721c24;
+    padding: 12px 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #f5c6cb;
+}
+
+/* ===== GRID LAYOUTS ===== */
+.row-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.password-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* ===== PASSWORD REQUIREMENTS ===== */
+.password-requirements {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 15px;
+    margin-top: 10px;
+    border: 1px solid #e9ecef;
+}
+
+.password-requirements h4 {
+    font-size: 14px;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.password-requirements ul {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.password-requirements li {
+    font-size: 12px;
+    color: #666;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.password-requirements li i {
+    font-size: 8px;
+    color: #999;
+}
+
+.password-requirements li.valid i {
+    color: #28a745;
+}
+
+.password-requirements li.valid span {
+    color: #28a745;
+}
+
+/* ===== DIVIDERS ===== */
+hr {
+    margin: 25px 0;
+    border: none;
+    border-top: 1px solid #eee;
+}
+
+/* ===== REQUIRED FIELD INDICATOR ===== */
+.required {
+    color: #dc3545;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media screen and (max-width: 992px) {
+    .profile-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .profile-sidebar {
+        max-width: 400px;
+        margin: 0 auto;
+    }
+}
+
+@media screen and (max-width: 768px) {
+    .main-container {
+        width: 95%;
+        padding: 0 10px;
+    }
+    
+    .row-2 {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+    
+    .password-requirements ul {
+        grid-template-columns: 1fr;
+    }
+    
+    .profile-sidebar {
+        max-width: 100%;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    .profile-avatar {
+        width: 120px;
+        height: 120px;
+    }
+    
+    .btn-primary,
+    .btn-secondary {
+        width: 100%;
+    }
+}
