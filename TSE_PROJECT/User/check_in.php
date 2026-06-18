@@ -47,7 +47,7 @@ if($current_hour_only >= $morning_earliest && $current_hour_only < $morning_end)
     header("Location: dashboard.php");
     exit();
 } else {
-    $_SESSION['error'] = "Check-in is only allowed during session hours (8:00-12:00 or 12:30-18:00)";
+    $_SESSION['error'] = "Check-in for Afternoon Session starts at 12:30. Please wait.";
     header("Location: dashboard.php");
     exit();
 }
