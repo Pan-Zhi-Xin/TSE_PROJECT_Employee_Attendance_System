@@ -19,14 +19,18 @@ $work_end_time_morning = '12:00:00';
 $work_end_time_afternoon = '18:00:00';
 $current_time = date('H:i:s');
 
-// ========== AUTO FORCE CHECKOUT LOGIC ==========
+// ========== AUTO FORCE CHECKOUT LOGIC (1 MINUTE AFTER SESSION END) ==========
 function autoCheckoutEmployee($conn, $employee_id, $today, $current_time, $morning_end, $afternoon_end) {
-    $morning_ended = ($current_time > $morning_end);
-    $afternoon_ended = ($current_time > $afternoon_end);
+    // Add 1 minute grace period after session end
+    $morning_end_plus_1 = date('H:i:s', strtotime($morning_end . ' +1 minute'));
+    $afternoon_end_plus_1 = date('H:i:s', strtotime($afternoon_end . ' +1 minute'));
+    
+    $morning_ended = ($current_time > $morning_end_plus_1);
+    $afternoon_ended = ($current_time > $afternoon_end_plus_1);
     
     $updated_count = 0;
     
-    // If no session has ended, return immediately
+    // If no session has ended (with 1 minute grace), return immediately
     if(!$morning_ended && !$afternoon_ended) {
         return $updated_count;
     }
@@ -45,7 +49,7 @@ function autoCheckoutEmployee($conn, $employee_id, $today, $current_time, $morni
         $work_end_time = ($session == 'morning') ? $morning_end : $afternoon_end;
         $check_in_time = $open_record['check_in_time'];
         
-        // Check if this session has ended
+        // Check if this session has ended (with 1 minute grace)
         $session_ended = ($session == 'morning') ? $morning_ended : $afternoon_ended;
         
         if($session_ended) {
@@ -56,6 +60,9 @@ function autoCheckoutEmployee($conn, $employee_id, $today, $current_time, $morni
             // Calculate early leave minutes
             $early_minutes = 0;
             $is_early = false;
+            // Check if the user would have left early (if they checked out at session end)
+            // Since we're auto-checking out at end time, they're not early
+            // But if current time is before work end (unlikely since we're past it), mark early
             if($current_time < $work_end_time) {
                 $early_minutes = round((strtotime($work_end_time) - strtotime($current_time)) / 60);
                 $is_early = true;
@@ -81,18 +88,19 @@ function autoCheckoutEmployee($conn, $employee_id, $today, $current_time, $morni
                 $status = 'present';
             }
             
-            // Force update to Check-out
+            // Force update to Check-out with session end time
             $update_query = "UPDATE attendance_records 
                              SET check_out_time = '$end_datetime', 
                                  working_hours = '$working_hours',
                                  status = '$status'
                              WHERE employee_id = '$employee_id' 
                              AND record_date = '$today' 
-                             AND session = '$session'";
+                             AND session = '$session'
+                             AND check_out_time IS NULL";
             
             if(mysqli_query($conn, $update_query)) {
                 $updated_count++;
-                error_log("Auto-checkout for employee $employee_id - $session at " . date('Y-m-d H:i:s'));
+                error_log("Auto-checkout for employee $employee_id - $session at " . date('Y-m-d H:i:s') . " (1 min after session end)");
             }
         }
     }
@@ -100,21 +108,24 @@ function autoCheckoutEmployee($conn, $employee_id, $today, $current_time, $morni
     return $updated_count;
 }
 
-// Execute auto check-out
 $auto_checkout_count = autoCheckoutEmployee($conn, $employee_id, $today, $current_time, $work_end_time_morning, $work_end_time_afternoon);
 
 // If auto check-out occurred, set a message
 if($auto_checkout_count > 0) {
-    $_SESSION['info'] = "⏰ System auto-checkout: $auto_checkout_count session(s) have been automatically checked out.";
+    $_SESSION['info'] = "⏰ System auto-checkout: $auto_checkout_count session(s) have been automatically checked out (1 minute after session end).";
 }
 
-// ========== AUTO-CREATE ABSENT RECORDS FOR THIS EMPLOYEE ==========
+// ========== AUTO-CREATE ABSENT RECORDS FOR THIS EMPLOYEE (with 1 minute grace) ==========
 function autoCreateAbsentForEmployee($conn, $employee_id, $today_date, $current_time, $morning_end, $afternoon_end) {
     $morning_created = 0;
     $afternoon_created = 0;
     
-    $create_morning_absent = ($current_time > $morning_end);
-    $create_afternoon_absent = ($current_time > $afternoon_end);
+    // Add 1 minute grace period
+    $morning_end_plus_1 = date('H:i:s', strtotime($morning_end . ' +1 minute'));
+    $afternoon_end_plus_1 = date('H:i:s', strtotime($afternoon_end . ' +1 minute'));
+    
+    $create_morning_absent = ($current_time > $morning_end_plus_1);
+    $create_afternoon_absent = ($current_time > $afternoon_end_plus_1);
     
     if (!$create_morning_absent && !$create_afternoon_absent) {
         return ['morning' => 0, 'afternoon' => 0];
@@ -147,7 +158,7 @@ function autoCreateAbsentForEmployee($conn, $employee_id, $today_date, $current_
     return ['morning' => $morning_created, 'afternoon' => $afternoon_created];
 }
 
-// Run auto-absent creation for this specific employee
+// Run auto-absent creation for this specific employee (with 1 minute grace)
 $created = autoCreateAbsentForEmployee($conn, $employee_id, $today, $current_time, $work_end_time_morning, $work_end_time_afternoon);
 
 // Helper functions
