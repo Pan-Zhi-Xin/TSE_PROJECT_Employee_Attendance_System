@@ -12,6 +12,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'employee') {
 
 $user_id = $_SESSION['user_id'];
 $message = "";
+$messageType = "";
 
 // 1. Get employee_id from user_id
 $employeeSql = "SELECT employee_id FROM employees WHERE user_id = ?";
@@ -33,29 +34,15 @@ $displayDate = date("d/m/Y");
 
 // Get current time
 $currentTime = date("H:i:s");
-$workingHourStart = '09:00:00';
-$workingHourEnd = '18:00:00';
-
-// Check if current time is within working hours
 $currentTimestamp = strtotime($currentTime);
-$startTimestamp = strtotime($workingHourStart);
-$endTimestamp = strtotime($workingHourEnd);
 
-$isWorkingHour = ($currentTimestamp >= $startTimestamp && $currentTimestamp <= $endTimestamp);
-
-// NEW: Check if it's before midnight (00:00 to 23:59:59)
-// The form should be accessible until 11:59:59 PM
-$isBeforeMidnight = ($currentTimestamp < strtotime('23:59:59'));
+// Define which statuses require a reason
+$reasonRequiredStatuses = ['late', 'left_early', 'late_early'];
 
 // 2. Check today's attendance records from database
 $todayRecords = [];
-$hasAnyRecord = false;
-$isPresent = false;
 $abnormalRecords = [];
-
-// Define which statuses require a reason (only late, early_leave, late_early)
-// Note: 'early_leave' in code should match 'left_early' in database
-$reasonRequiredStatuses = ['late', 'left_early', 'late_early'];
+$hasAnyRecord = false; 
 
 $sql = "
     SELECT 
@@ -77,98 +64,149 @@ $result = $stmt->get_result();
 
 while ($row = $result->fetch_assoc()) {
     $todayRecords[] = $row;
-    $hasAnyRecord = true;
+    $hasAnyRecord = true; 
     
-    // Check if any record has status 'present'
-    if ($row['status'] == 'present') {
-        $isPresent = true;
-    }
-    
-    // Collect records that need a reason (late, left_early, late_early only)
-    // EXCLUDING: absent, half_day, holiday
+    // Collect records that need a reason
     if (in_array($row['status'], $reasonRequiredStatuses)) {
         $abnormalRecords[] = $row;
     }
 }
 $stmt->close();
 
-// 3. Determine what to display
 $hasAbnormalRecords = (count($abnormalRecords) > 0);
 
-// CHECK if any abnormal record already has a reason (notes not empty)
-$hasSubmittedReasons = false;
-foreach ($abnormalRecords as $record) {
-    if (!empty($record['notes'])) {
-        $hasSubmittedReasons = true;
-        break;
-    }
-}
-
-// 4. Handle form submission
+// 3. Handle form submission 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
     $reasons = $_POST['reason'] ?? [];
+    
+    // Log what was submitted
+    error_log("=== FORM SUBMISSION ===");
+    error_log("Reasons submitted: " . print_r($reasons, true));
+    error_log("Employee ID: " . $employee_id);
+    
     $allUpdated = true;
     $updatedCount = 0;
-
-    // Only process records that require a reason
+    $failedUpdates = [];
+    
+    // Process each submitted reason
     foreach ($reasons as $record_id => $reason) {
         $reason = trim($reason);
+        
+        // Log each update attempt
+        error_log("Processing record_id: " . $record_id . " | Reason: " . $reason);
+        
         if ($reason === '') {
             $allUpdated = false;
             $message = "Please provide reasons for all required records.";
+            $messageType = "error";
             break;
         }
-
+        
+        // Verify the record belongs to this employee and session
+        $verifySql = "
+            SELECT record_id, session, status, notes 
+            FROM attendance_records 
+            WHERE record_id = ? 
+            AND employee_id = ?
+            AND record_date = ?
+        ";
+        $verifyStmt = $conn->prepare($verifySql);
+        $verifyStmt->bind_param("sis", $record_id, $employee_id, $today);
+        $verifyStmt->execute();
+        $verifyResult = $verifyStmt->get_result();
+        
+        if ($verifyResult->num_rows === 0) {
+            error_log("ERROR: Record not found - record_id: " . $record_id);
+            $failedUpdates[] = "Record not found: " . $record_id;
+            $allUpdated = false;
+            $verifyStmt->close();
+            continue;
+        }
+        
+        $recordData = $verifyResult->fetch_assoc();
+        error_log("Found record - Session: " . $recordData['session'] . " | Current notes: " . $recordData['notes']);
+        $verifyStmt->close();
+        
+        // Perform the update
         $updateSql = "
             UPDATE attendance_records
             SET notes = ?
             WHERE record_id = ?
             AND employee_id = ?
+            AND record_date = ?
         ";
         $updateStmt = $conn->prepare($updateSql);
-        $updateStmt->bind_param("sii", $reason, $record_id, $employee_id);
+        // record_id is VARCHAR(50), so use 's' not 'i'
+        $updateStmt->bind_param("ssss", $reason, $record_id, $employee_id, $today);
+        
         if ($updateStmt->execute()) {
-            $updatedCount++;
+            if ($updateStmt->affected_rows > 0) {
+                $updatedCount++;
+                error_log("SUCCESS: Updated record_id: " . $record_id . " with reason: " . $reason);
+            } else {
+                error_log("WARNING: No rows affected for record_id: " . $record_id);
+            }
+        } else {
+            error_log("ERROR: Update failed - " . $updateStmt->error);
+            $failedUpdates[] = "Update failed: " . $record_id;
+            $allUpdated = false;
         }
         $updateStmt->close();
     }
-
+    
+    // Refresh data after updates
     if ($allUpdated && $updatedCount > 0) {
+        $message = "Reasons submitted successfully! (" . $updatedCount . " record(s) updated)";
+        $messageType = "success";
         
-        // Refresh abnormal records after update
+        // REFRESH ALL DATA
+        $refreshSql = "
+            SELECT 
+                record_id,
+                session,
+                status,
+                notes,
+                check_in_time,
+                check_out_time
+            FROM attendance_records
+            WHERE employee_id = ?
+              AND record_date = ?
+            ORDER BY FIELD(session, 'morning', 'afternoon')
+        ";
+        $refreshStmt = $conn->prepare($refreshSql);
+        $refreshStmt->bind_param("is", $employee_id, $today);
+        $refreshStmt->execute();
+        $refreshResult = $refreshStmt->get_result();
+        
+        $todayRecords = [];
         $abnormalRecords = [];
-        $isPresent = false;
-        $hasAnyRecord = false;
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("is", $employee_id, $today);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            $hasAnyRecord = true;
-            if ($row['status'] == 'present') {
-                $isPresent = true;
-            }
+        $hasAnyRecord = false;  
+        
+        while ($row = $refreshResult->fetch_assoc()) {
+            $todayRecords[] = $row;
+            $hasAnyRecord = true;  
             if (in_array($row['status'], $reasonRequiredStatuses)) {
                 $abnormalRecords[] = $row;
             }
         }
-        $stmt->close();
+        $refreshStmt->close();
         $hasAbnormalRecords = (count($abnormalRecords) > 0);
         
-        // Re-check if any abnormal record has a reason
-        $hasSubmittedReasons = false;
-        foreach ($abnormalRecords as $record) {
-            if (!empty($record['notes'])) {
-                $hasSubmittedReasons = true;
-                break;
-            }
-        }
+        // Log the refreshed data
+        error_log("=== REFRESHED DATA ===");
+        error_log("Today Records: " . print_r($todayRecords, true));
+        error_log("Abnormal Records: " . print_r($abnormalRecords, true));
+        
     } elseif ($allUpdated && $updatedCount == 0) {
         $message = "No changes were made.";
+        $messageType = "info";
+    } elseif (!empty($failedUpdates)) {
+        $message = "Some updates failed: " . implode(", ", $failedUpdates);
+        $messageType = "error";
     }
 }
 
-// Status labels for display (matching database values)
+// Status labels for display
 $statusLabels = [
     'late'        => 'Late',
     'left_early'  => 'Early Leave',
@@ -184,11 +222,18 @@ $sessionLabels = [
     'afternoon' => 'Afternoon (1:00 PM - 6:00 PM)'
 ];
 
-// Session time ranges for display
 $sessionTimes = [
     'morning' => '9:00 AM - 12:00 PM',
     'afternoon' => '1:00 PM - 6:00 PM'
 ];
+
+// Display current abnormal records
+error_log("=== CURRENT STATE ===");
+error_log("Abnormal Records Count: " . count($abnormalRecords));
+error_log("Has Any Record: " . ($hasAnyRecord ? 'Yes' : 'No'));
+foreach ($abnormalRecords as $record) {
+    error_log("Record: " . $record['record_id'] . " | Session: " . $record['session'] . " | Status: " . $record['status'] . " | Notes: " . ($record['notes'] ?? 'NULL'));
+}
 ?>
 
 <style>
@@ -450,7 +495,7 @@ textarea.form-control {
             <h2 class="reason-title">📋 Attendance Reason Submission</h2>
 
             <?php if ($message !== "" && $hasAbnormalRecords): ?>
-                <div class="message">
+                <div class="message <?php echo $messageType; ?>">
                     <?php echo htmlspecialchars($message); ?>
                 </div>
             <?php endif; ?>
@@ -636,7 +681,7 @@ textarea.form-control {
                                         placeholder="Please explain why you were <?php echo strtolower($statusLabels[$status] ?? $status); ?> for the <?php echo $session; ?> session..."
                                         rows="3"
                                         required
-                                    ></textarea>
+                                    ><?php echo htmlspecialchars($existingNote); ?></textarea>
                                 </div>
                             <?php endforeach; ?>
                             <button type="submit" name="submit" class="submit-btn">
