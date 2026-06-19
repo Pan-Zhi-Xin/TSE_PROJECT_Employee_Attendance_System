@@ -1,6 +1,6 @@
 <?php
 session_start();
-date_default_timezone_set('UTC'); 
+date_default_timezone_set('Asia/Kuala_Lumpur');
 
 include '../db_connection.php';
 
@@ -57,7 +57,7 @@ if (isset($_POST['send_otp'])) {
                     $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS; 
                     $mail->Port       = 587;
 
-                    $mail->setFrom('leeching2565@gmail.com', 'Attendance System');
+                    $mail->setFrom('panzhixin7256@gmail.com', 'Locker Tech Attendance System');
                     $mail->addAddress($email, $name);
                     $mail->isHTML(true);
                     $mail->Subject = 'Password Reset OTP';

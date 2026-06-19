@@ -1,6 +1,6 @@
 <?php
 session_start();
-date_default_timezone_set('UTC');
+date_default_timezone_set('Asia/Kuala_Lumpur');
 include '../db_connection.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
@@ -18,11 +18,30 @@ if (!isset($_SESSION['reset_email']) || !isset($_SESSION['reset_user_id'])) {
     exit();
 }
 
-$expires_timestamp = 0;
-$is_expired = false;
-
 $user_id = (int)$_SESSION['reset_user_id'];
 $email = mysqli_real_escape_string($conn, $_SESSION['reset_email']);
+
+
+// Auto-expire ALL expired OTPs
+mysqli_query($conn, "
+    UPDATE password_reset 
+    SET is_used = 'Expired' 
+    WHERE is_used = 'Active' 
+    AND expires_at < NOW()
+");
+
+// Auto-expire specific user's expired OTPs
+mysqli_query($conn, "
+    UPDATE password_reset 
+    SET is_used = 'Expired' 
+    WHERE user_id = $user_id 
+    AND email = '$email' 
+    AND is_used = 'Active' 
+    AND expires_at < NOW()
+");
+
+$expires_timestamp = 0;
+$is_expired = false;
 
 $expiryQuery = mysqli_query($conn, "
     SELECT expires_at
@@ -36,10 +55,11 @@ $expiryQuery = mysqli_query($conn, "
 
 if ($expiryQuery && mysqli_num_rows($expiryQuery) > 0) {
     $expiryRow = mysqli_fetch_assoc($expiryQuery);
-    $expires_timestamp = strtotime($expiryRow['expires_at'] . ' UTC') * 1000;
+    // Convert to timestamp (no UTC conversion needed since we store local time)
+    $expires_timestamp = strtotime($expiryRow['expires_at']) * 1000;
     
     // Check if already expired
-    if (time() > strtotime($expiryRow['expires_at'] . ' UTC')) {
+    if (time() > strtotime($expiryRow['expires_at'])) {
         $is_expired = true;
     }
 }
@@ -61,17 +81,34 @@ if (isset($_POST['request_new_otp'])) {
         
         // Generate new 6-digit OTP
         $otp = rand(100000, 999999);
-        $expires_at = date("Y-m-d H:i:s", strtotime("+5 minutes"));
         
         // Mark old OTPs as expired
         mysqli_query($conn, "UPDATE password_reset SET is_used = 'Expired' 
                              WHERE user_id = $user_id AND email = '$email' AND is_used = 'Active'");
         
-        // Insert new OTP
+        // Insert new OTP with local time (Asia/Kuala_Lumpur)
+        $expires_at = date("Y-m-d H:i:s", strtotime("+5 minutes"));
         $insert = mysqli_query($conn, "INSERT INTO password_reset (user_id, email, token, expires_at, is_used)
                                        VALUES ('$user_id', '$email', '$otp', '$expires_at', 'Active')");
         
         if ($insert) {
+            // Get the expires_at value for JavaScript
+            $expiryQuery = mysqli_query($conn, "
+                SELECT expires_at
+                FROM password_reset
+                WHERE user_id = $user_id
+                AND email = '$email'
+                AND is_used = 'Active'
+                ORDER BY reset_id DESC
+                LIMIT 1
+            ");
+            
+            if ($expiryQuery && mysqli_num_rows($expiryQuery) > 0) {
+                $expiryRow = mysqli_fetch_assoc($expiryQuery);
+                $expires_timestamp = strtotime($expiryRow['expires_at']) * 1000;
+                $is_expired = false;
+            }
+            
             // Send email with new OTP
             try {
                 $mail = new PHPMailer(true);
@@ -83,7 +120,7 @@ if (isset($_POST['request_new_otp'])) {
                 $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
                 $mail->Port       = 587;
 
-                $mail->setFrom('leeching2565@gmail.com', 'Attendance System');
+                $mail->setFrom('panzhixin7256@gmail.com', 'Locker Tech Attendance System');
                 $mail->addAddress($email, $name);
                 $mail->isHTML(true);
                 $mail->Subject = 'New Password Reset OTP';
@@ -97,10 +134,6 @@ if (isset($_POST['request_new_otp'])) {
                 ";
 
                 $mail->send();
-                
-                // Update expiry timestamp for JavaScript
-                $expires_timestamp = strtotime($expires_at . ' UTC') * 1000;
-                $is_expired = false;
                 
                 $message = "New OTP has been sent to your email!";
                 $message_type = "success";
