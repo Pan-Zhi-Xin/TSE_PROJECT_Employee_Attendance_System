@@ -367,9 +367,6 @@ foreach ($abnormalRecords as $record) {
             gap: 10px;
         }
 
-        /* --- Reason-specific overrides --- */
-
-        /* Remove old container spacing */
         .reason-container {
             max-width: 100%;
             margin: 0;
@@ -384,7 +381,6 @@ foreach ($abnormalRecords as $record) {
             width: 100%;
         }
 
-        /* Title matches login welcome */
         .reason-title {
             font-size: 32px;
             font-weight: 700;
@@ -394,7 +390,6 @@ foreach ($abnormalRecords as $record) {
             text-align: left;
         }
 
-        /* Add a subtitle to match login */
         .reason-title::after {
             display: block;
             font-size: 15px;
@@ -404,7 +399,6 @@ foreach ($abnormalRecords as $record) {
             letter-spacing: 0;
         }
 
-        /* Form groups match login */
         .form-group {
             margin-bottom: 20px;
         }
@@ -519,7 +513,6 @@ foreach ($abnormalRecords as $record) {
             border-color: #f59e0b;
         }
 
-        /* Info boxes styled like login elements */
         .info-box {
             padding: 16px 18px;
             border-radius: 16px;
@@ -565,12 +558,6 @@ foreach ($abnormalRecords as $record) {
             background: #fce4ec;
             color: #880e4f;
             border-color: #e91e63;
-        }
-
-        .info-box.warning {
-            background: #fff3cd;
-            color: #856404;
-            border-color: #ffc107;
         }
 
         /* Record items */
@@ -634,8 +621,8 @@ foreach ($abnormalRecords as $record) {
 
         .reason-submitted-badge {
             display: inline-block;
-            background: #e8f5e9; /* Light green background */
-            color: #1b5e20; /* Dark green text */
+            background: #e8f5e9;
+            color: #1b5e20; 
             padding: 2px 12px;
             border-radius: 40px;
             font-size: 11px;
@@ -643,7 +630,6 @@ foreach ($abnormalRecords as $record) {
             margin-left: 6px;
         }
 
-        /* Working hours info */
         .working-hours-info {
             text-align: center;
             padding: 12px 16px;
@@ -662,7 +648,6 @@ foreach ($abnormalRecords as $record) {
             margin-top: 2px;
         }
 
-        /* Summary boxes */
         .record-summary {
             display: flex;
             gap: 12px;
@@ -795,10 +780,9 @@ foreach ($abnormalRecords as $record) {
             <!-- LEFT COLUMN: Reason Form -->
             <div class="login-col">
                 <div class="frame">
-                    <!-- Welcome Back with proper positioning -->
-                    <div class="welcome-section">
+                    <div class="section">
                         <h2 class="reason-title">📋 Attendance Reason</h2>
-                        <p class="welcome-subtitle">Provide reasons for your attendance</p>
+                        <p class="subtitle">Provide reasons for your attendance</p>
                     </div>
 
                     <?php if ($message !== "" && $hasAbnormalRecords): ?>
@@ -813,9 +797,9 @@ foreach ($abnormalRecords as $record) {
                         <br><small>Reasons can be submitted until 11:59 PM today</small>
                     </div>
 
-                    <!-- Date Display (Read-only) -->
+                    <!-- Date Display-->
                     <div class="form-group">
-                        <label for="date"><i class="fas fa-calendar-alt"></i> Date</label>
+                        <label for="date">Date</label>
                         <input type="text" id="date" class="form-control" value="<?php echo $displayDate; ?>" readonly>
                     </div>
 
@@ -894,11 +878,6 @@ foreach ($abnormalRecords as $record) {
                             } else {
                                 // Some records don't have reasons yet - show form
                                 ?>
-                                <div class="info-box warning" style="margin-bottom:20px;">
-                                    You have <strong><?php echo count($abnormalRecords); ?></strong> attendance record(s) that require a reason.
-                                    Please provide a reason for each.
-                                </div>
-                                
                                 <!-- Show summary of all sessions -->
                                 <div class="record-summary">
                                     <?php foreach ($todayRecords as $record): 
@@ -939,7 +918,7 @@ foreach ($abnormalRecords as $record) {
                                                     </span>
                                                     <span class="badge badge-<?php echo $status; ?>">
                                                         <?php echo $statusLabels[$status] ?? $status; ?>
-                                                        <span class="reason-submitted-badge">✓ Submitted</span>
+                                                        <span class="reason-submitted-badge">Submitted</span>
                                                     </span>
                                                 </div>
                                                 <div class="submitted-reason-box">
