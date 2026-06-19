@@ -830,12 +830,7 @@ foreach ($abnormalRecords as $record) {
                             }
                             
                             if ($allHaveReasons) {
-                                // ALL records have reasons - show only the submitted reasons
-                                ?>
-                                <div class="info-box success" style="margin-bottom:20px;">
-                                    All reasons have been submitted successfully.
-                                </div>
-                                
+                                ?>                              
                                 <!-- Show summary of all sessions -->
                                 <div class="record-summary">
                                     <?php foreach ($todayRecords as $record): 
