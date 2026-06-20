@@ -200,9 +200,8 @@ img {
 }
 
 .section-title.summary {
-    background: #f3e5f5;
-    color: #6a1b9a;
     text-align: center;
+    font-size: 20px;
 }
 
 .no-data {
