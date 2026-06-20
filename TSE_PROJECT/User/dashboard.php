@@ -740,12 +740,6 @@ unset($_SESSION['checkin_time']);
             <button onclick="document.getElementById('messagePopup').style.display='none'">OK</button>
         </div>
     </div>
-    <script>
-        setTimeout(function() {
-            var popup = document.getElementById('messagePopup');
-            if(popup) popup.style.display = 'none';
-        }, 4000);
-    </script>
     <?php endif; ?>
     
     <!-- Time Card -->
