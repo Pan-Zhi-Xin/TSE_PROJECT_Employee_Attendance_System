@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jun 14, 2026 at 12:45 PM
+-- Generation Time: Jun 20, 2026 at 07:47 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.0.30
 
@@ -70,7 +70,6 @@ CREATE TABLE `attendance_records` (
 -- Dumping data for table `attendance_records`
 --
 
-INSERT INTO `attendance_records` (`record_id`, `employee_id`, `record_date`, `session`, `check_in_time`, `check_out_time`, `status`, `late_minutes`, `working_hours`, `notes`, `created_at`, `updated_at`) VALUES
 INSERT INTO `attendance_records` (`record_id`, `employee_id`, `record_date`, `session`, `check_in_time`, `check_out_time`, `status`, `late_minutes`, `working_hours`, `notes`, `created_at`, `updated_at`) VALUES
 ('AFT20260525001', 1, '2026-05-25', 'afternoon', '2026-05-25 13:00:00', '2026-05-25 18:00:00', 'present', 0, 5.00, NULL, '2026-05-25 05:00:00', '2026-05-25 10:00:00'),
 ('AFT20260525002', 2, '2026-05-25', 'afternoon', '2026-05-25 13:00:00', '2026-05-25 18:00:00', 'present', 0, 5.00, NULL, '2026-05-25 05:00:00', '2026-05-25 10:00:00'),
@@ -410,6 +409,86 @@ INSERT INTO `attendance_records` (`record_id`, `employee_id`, `record_date`, `se
 ('MNG20260620007', 7, '2026-06-20', 'morning', '2026-06-20 08:25:00', '2026-06-20 12:00:00', 'present', 0, 3.58, NULL, '2026-06-14 10:44:33', '2026-06-14 10:44:33'),
 ('MNG20260620008', 8, '2026-06-20', 'morning', NULL, NULL, 'absent', 0, 0.00, 'Unwell', '2026-06-14 10:44:33', '2026-06-14 10:44:33');
 
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `employees`
+--
+
+CREATE TABLE `employees` (
+  `employee_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `employee_code` varchar(50) NOT NULL,
+  `department` varchar(100) NOT NULL,
+  `position` varchar(100) NOT NULL,
+  `employment_date` date NOT NULL,
+  `contact_number` varchar(20) NOT NULL,
+  `address` text NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `employees`
+--
+
+INSERT INTO `employees` (`employee_id`, `user_id`, `employee_code`, `department`, `position`, `employment_date`, `contact_number`, `address`) VALUES
+(1, 2, 'EMP001', 'IT Department', 'Software Developer', '2024-01-15', '0123456789', '123 Tech Park, Kuala Lumpur'),
+(2, 3, 'EMP002', 'Finance Department', 'Finance Manager', '2024-02-01', '0123451111', '456 Finance Tower, Petaling Jaya'),
+(3, 4, 'EMP003', 'Marketing Department', 'Marketing Manager', '2024-02-01', '0123452222', '789 Marketing Plaza, Kuala Lumpur'),
+(4, 5, 'EMP004', 'Operations Department', 'Operations Manager', '2024-02-01', '0123453333', '321 Operations Hub, Shah Alam'),
+(5, 6, 'EMP005', 'HR Department', 'HR Executive', '2024-03-01', '0123454444', '555 HR Tower, Petaling Jaya'),
+(6, 7, 'EMP006', 'Sales Department', 'Sales Manager', '2024-03-15', '0123455555', '666 Sales Tower, Kuala Lumpur'),
+(7, 8, 'EMP007', 'Customer Service', 'Customer Service Lead', '2024-04-01', '0123456666', '777 Service Center, Shah Alam'),
+(8, 9, 'EMP008', 'Administration', 'Admin Executive', '2024-04-15', '0123457777', '888 Admin Building, Kuala Lumpur');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `password_reset`
+--
+
+CREATE TABLE `password_reset` (
+  `reset_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `token` varchar(255) NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `is_used` enum('Active','Used','Expired') DEFAULT 'Active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `users`
+--
+
+CREATE TABLE `users` (
+  `user_id` int(11) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `name` varchar(100) NOT NULL,
+  `role` enum('employee','admin') NOT NULL,
+  `profile_picture` varchar(255) DEFAULT NULL,
+  `status` enum('Active','Inactive') DEFAULT 'Active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `users`
+--
+
+INSERT INTO `users` (`user_id`, `email`, `password`, `name`, `role`, `profile_picture`, `status`, `created_at`, `updated_at`) VALUES
+(1, 'leeching2565@gmail.com', '123456789', 'System Administrator', 'admin', NULL, 'Active', '2024-01-01 00:00:00', '2026-06-14 20:16:21'),
+(2, 'zhixin@gmail.com', '123', 'Zhi Xin', 'employee', NULL, 'Active', '2026-06-15 08:44:00', '2026-06-15 00:44:00'),
+(3, 'celine@gmail.com', '123', 'Celine', 'employee', NULL, 'Active', '2026-06-15 08:56:00', '2026-06-15 00:56:00'),
+(4, 'yuxuan@gmail.com', '123', 'Yu Xuan', 'employee', NULL, 'Active', '2026-06-15 09:08:00', '2026-06-15 01:08:00'),
+(5, 'xuanting@gmail.com', '123', 'Xuan Ting', 'employee', NULL, 'Active', '2026-06-15 08:22:00', '2026-06-15 00:22:00'),
+(6, 'weiheng@gmail.com', '123', 'Wei Heng', 'employee', NULL, 'Active', '2026-06-15 08:52:00', '2026-06-15 00:52:00'),
+(7, 'jingwen@gmail.com', '123', 'Jing Wen', 'employee', NULL, 'Active', '2026-06-15 08:48:00', '2026-06-15 00:48:00'),
+(8, 'peiyee@gmail.com', '123', 'Pei Yee', 'employee', NULL, 'Active', '2026-06-15 08:35:00', '2026-06-15 00:35:00'),
+(9, 'kahjun@gmail.com', '123', 'Kah Jun', 'employee', NULL, 'Active', '2026-06-15 09:02:00', '2026-06-15 01:02:00');
+
 --
 -- Indexes for dumped tables
 --
@@ -481,7 +560,7 @@ ALTER TABLE `employees`
 -- AUTO_INCREMENT for table `password_reset`
 --
 ALTER TABLE `password_reset`
-  MODIFY `reset_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
+  MODIFY `reset_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `users`
