@@ -28,7 +28,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $user = mysqli_fetch_assoc($result);
 
             if ($user["status"] != 'Active') {
-                $error = "Your account has been Inactive, please contact the administrator for more information.";
+                $error = "Your account has been Deactivated, please contact the administrator for more information.";
             } else if ($password === $user["password"]) {
                 $_SESSION["user_id"] = $user["user_id"];
                 $_SESSION["username"] = $user["name"];
