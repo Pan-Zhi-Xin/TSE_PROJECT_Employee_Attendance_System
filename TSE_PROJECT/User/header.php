@@ -40,7 +40,6 @@ $show_back_button = ($current_page != 'dashboard.php');
             z-index: 1000;
         }
 
-        /* Inner container for centered content */
         .header-container {
             width: 80%;
             height: 100%;
@@ -50,7 +49,6 @@ $show_back_button = ($current_page != 'dashboard.php');
             justify-content: space-between;
         }
 
-        /* Left section - Back Button + Logo + System Name */
         .header-left {
             display: flex;
             align-items: center;
@@ -67,6 +65,12 @@ $show_back_button = ($current_page != 'dashboard.php');
             background: #f0f0f0;
             padding: 8px 15px;
             border-radius: 25px;
+            transition: all 0.3s;
+        }
+
+        .back-button a:hover {
+            background: #e0e0e0;
+            color: #667eea;
         }
 
         .logo-link {
@@ -81,7 +85,12 @@ $show_back_button = ($current_page != 'dashboard.php');
             width: auto;
         }
 
-        /* Right section - Navigation Menu */
+        .header-left span {
+            font-weight: bold;
+            font-size: 18px;
+            color: #333;
+        }
+
         .header-right {
             display: flex;
             align-items: center;
@@ -106,6 +115,27 @@ $show_back_button = ($current_page != 'dashboard.php');
             font-size: 16px;
             font-weight: 500;
             padding: 5px 10px;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        nav ul li a:hover {
+            color: #667eea;
+        }
+
+        nav ul li a::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: #667eea;
+            transition: width 0.3s ease;
+        }
+
+        nav ul li a:hover::after {
+            width: 100%;
         }
 
         .user-auth {
@@ -142,10 +172,19 @@ $show_back_button = ($current_page != 'dashboard.php');
             text-align: center;
             padding: 10px 0;
             z-index: 1001;
+            animation: slideDown 0.3s ease;
         }
 
         .user-menu.show {
             display: block;
+        }
+
+        .user-menu .user-name {
+            padding: 8px 15px;
+            border-bottom: 1px solid #eee;
+            font-weight: bold;
+            color: #667eea;
+            font-size: 14px;
         }
 
         .user-menu a {
@@ -155,17 +194,17 @@ $show_back_button = ($current_page != 'dashboard.php');
             font-size: 14px;
             padding: 8px 15px;
             transition: 0.3s;
+            text-align: left;
         }
 
         .user-menu a:hover {
             background-color: #f0f0f0;
+            color: #667eea;
         }
 
-        .user-menu .user-name {
-            padding: 8px 15px;
-            border-bottom: 1px solid #eee;
-            font-weight: bold;
-            color: #667eea;
+        .user-menu a i {
+            margin-right: 10px;
+            width: 18px;
         }
 
         .dashboard-card {
@@ -189,7 +228,6 @@ $show_back_button = ($current_page != 'dashboard.php');
             margin-bottom: 20px;
         }
 
-        /* Main content container - match header width */
         .main-container {
             width: 80%;
             margin: 0 auto;
