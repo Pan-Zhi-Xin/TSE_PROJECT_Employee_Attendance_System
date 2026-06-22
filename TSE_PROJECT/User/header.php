@@ -272,7 +272,7 @@ $show_back_button = ($current_page != 'dashboard.php');
                         <div class="user-name">
                             <i class="fas fa-user"></i> <?php echo $_SESSION['user_name']; ?>
                         </div>
-                        <a href="profile.php"><i class="fas fa-user-circle"></i> My Profile</a>
+                        <a href="profile_employee.php"><i class="fas fa-user-circle"></i> My Profile</a>
                         <a href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
                     </div>
                 </div>
