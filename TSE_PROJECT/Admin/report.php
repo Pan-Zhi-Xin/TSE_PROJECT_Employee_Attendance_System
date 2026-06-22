@@ -116,7 +116,6 @@ while($row = mysqli_fetch_assoc($emp_result)) {
     // Set max date for month picker
     const monthPicker = document.getElementById('monthPicker');
     if(monthPicker) {
-        // Format: YYYY-MM
         const maxMonth = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
         monthPicker.max = maxMonth;
         
@@ -140,7 +139,6 @@ while($row = mysqli_fetch_assoc($emp_result)) {
             customStartGroup.style.display = 'block';
             customEndGroup.style.display = 'block';
             
-            // Get the date inputs
             const startDateInput = document.getElementById('customStartDate');
             const endDateInput = document.getElementById('customEndDate');
             
@@ -190,7 +188,6 @@ while($row = mysqli_fetch_assoc($emp_result)) {
                 return false;
             }
             
-            // Extract year and month from the month picker value (format: YYYY-MM)
             const [selectedYear, selectedMonth] = monthYear.split('-');
             
             // Check if future month is selected

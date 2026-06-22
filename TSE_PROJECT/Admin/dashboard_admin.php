@@ -3,7 +3,14 @@ session_start();
 include '../db_connection.php';
 include 'header_admin.php';
 
+// Set timezone
 date_default_timezone_set('Asia/Kuala_Lumpur');
+
+// Check if admin is logged in
+if(!isset($_SESSION['user_id']) || $_SESSION['role'] != 'admin') {
+    header("Location: login_admin.php");
+    exit();
+}
 
 $today = date('Y-m-d');
 $morning_start = '09:00:00';

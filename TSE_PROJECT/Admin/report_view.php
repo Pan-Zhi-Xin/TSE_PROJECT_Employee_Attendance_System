@@ -36,7 +36,7 @@ function calculateEarlyMinutesExport($check_out_time, $session) {
     return 0;
 }
 
-// ============ HELPER FUNCTIONS ============
+//helper function
 function getStatusInfo($actual_status) {
     $status_info = [
         'status_class' => '',
@@ -140,7 +140,7 @@ function getSessionStatusDisplay($row) {
     return $is_late ? ['status' => 'late', 'class' => 'status-late', 'text' => 'Late'] : ['status' => 'present', 'class' => 'status-present', 'text' => 'Present'];
 }
 
-// Status priority for sorting
+//status sorting priority
 function getStatusPriority($status) {
     $priority = [
         'present' => 1,
@@ -155,7 +155,7 @@ function getStatusPriority($status) {
     return $priority[$status] ?? 8;
 }
 
-// ============ PDF EXPORT ============
+//PDF file export
 if(isset($_GET['export_pdf']) && $_GET['export_pdf'] == '1') {
     // Get export parameters
     $export_report_type = $_GET['report_type'] ?? '';
@@ -200,7 +200,7 @@ if(isset($_GET['export_pdf']) && $_GET['export_pdf'] == '1') {
         $export_data[] = $row;
     }
     
-    // Generate filename with employee name for PDF
+    //File name
     if($export_report_type == 'daily') {
         $date_display = date('d-m-Y', strtotime($export_start_date));
         $employee_name = ($export_selected_employee != 'all') ? getEmployeeDisplayName($conn, $export_selected_employee) : 'All_Employees';
@@ -222,7 +222,6 @@ if(isset($_GET['export_pdf']) && $_GET['export_pdf'] == '1') {
         $report_title = "Custom Report - " . $start_display . " - " . $end_display . " (" . $employee_name . ")";
     }
 
-    // PDF Class
     class PDF extends FPDF {
         function Header() {
             if($this->PageNo() == 1) {
@@ -318,6 +317,7 @@ if(isset($_GET['export_pdf']) && $_GET['export_pdf'] == '1') {
     $pdf->Cell(0, 7, 'Generated On: ' . date('d-m-Y H:i:s'), 0, 1, 'C');
     $pdf->Ln(8);
     
+    // DAILY REPORT
     if($export_report_type == 'daily') {
         // Separate morning and afternoon sessions
         $morning_export = [];
@@ -444,7 +444,7 @@ if(isset($_GET['export_pdf']) && $_GET['export_pdf'] == '1') {
         $pdf->SummaryTable($emp_header, $emp_data, $emp_colWidths);
         
     } else {
-        // MONTHLY/CUSTOM REPORT - Display with date separators
+        // MONTHLY/CUSTOM REPORT
         $header = array('Date', 'Code', 'Name', 'Department', 'Position', 'Session', 'In', 'Out', 'Hrs', 'Status', 'Late (min)', 'Early Left (min)', 'Reason');
         $colWidths = array(20, 16, 28, 25, 25, 12, 16, 16, 12, 18, 16, 19, 32);
         
@@ -519,7 +519,7 @@ if(isset($_GET['export_pdf']) && $_GET['export_pdf'] == '1') {
         
         $pdf->Ln(8);
         
-        // EMPLOYEE SUMMARY TABLE for Monthly/Custom
+        // EMPLOYEE SUMMARY TABLE for MONTHLY/CUSTOM REPORT
         $monthly_employee_summary = [];
         foreach($export_data as $row) {
             $emp_id = $row['employee_id'];
@@ -591,7 +591,7 @@ if(isset($_GET['export_pdf']) && $_GET['export_pdf'] == '1') {
     exit();
 }
 
-// ============ EXCEL EXPORT ============
+//Excel file export
 if(isset($_GET['export_excel']) && $_GET['export_excel'] == '1') {
     include '../db_connection.php';
     
@@ -705,6 +705,7 @@ if(isset($_GET['export_excel']) && $_GET['export_excel'] == '1') {
     
     echo '<br/>';
     
+    // DAILY REPORT
     if($export_report_type == 'daily') {
         $morning_export = [];
         $afternoon_export = [];
@@ -866,7 +867,7 @@ if(isset($_GET['export_excel']) && $_GET['export_excel'] == '1') {
         echo '</tbody>';
         echo '</table>';
     } else {
-        // MONTHLY/CUSTOM REPORT - Group by date and sort within groups
+        // MONTHLY/CUSTOM REPORT
         $grouped_by_date = [];
         foreach($export_data as $row) {
             $date = $row['record_date'];
@@ -913,14 +914,13 @@ if(isset($_GET['export_excel']) && $_GET['export_excel'] == '1') {
                 return $priority_a - $priority_b;
             });
             
-            // Date separator row
+            // Date separator
             echo '<tr class="date-separator-row">';
             echo '<td colspan="13" style="background-color: #f5f5f5; font-weight: bold; text-align: center;">';
             echo '<strong>' . $row_date . '</strong>';
             echo '</td>';
             echo '</tr>';
             
-            // Display records for this date
             foreach($records as $row) {
                 echo '<tr>';
                 echo '<td class="text-center">' . $row_date . '</td>';
@@ -1037,7 +1037,7 @@ if(isset($_GET['export_excel']) && $_GET['export_excel'] == '1') {
     exit();
 }
 
-// ============ NORMAL PAGE LOAD ============
+//Normal page load
 include '../db_connection.php';
 include 'header_admin.php';
 
