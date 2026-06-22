@@ -446,6 +446,20 @@ CREATE TABLE `password_reset` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `password_reset`
+--
+
+INSERT INTO `password_reset` (`reset_id`, `user_id`, `email`, `token`, `expires_at`, `is_used`, `created_at`) VALUES
+(1, 1, 'leeching2565@gmail.com', '433657', '2026-05-22 14:25:36', 'Used', '2026-05-22 06:20:36'),
+(2, 2, 'zhixin@gmail.com', '338873', '2026-05-25 12:30:37', 'Expired', '2026-05-25 04:25:37'),
+(3, 2, 'zhixin@gmail.com', '487981', '2026-05-25 12:36:41', 'Used', '2026-05-25 04:31:41'),
+(4, 3, 'kongcelien0605@gmail.com', '995122', '2026-06-01 08:49:45', 'Used', '2026-06-01 00:44:45'),
+(5, 6, 'weiheng@gmail.com', '578718', '2026-06-03 12:32:26', 'Used', '2026-06-03 04:27:26'),
+(6, 4, 'yuxuan@gmail.com', '876121', '2026-06-05 15:44:13', 'Used', '2026-06-05 07:39:13'),
+(9, 9, 'kahjun@gmail.com', '363425', '2026-06-06 14:55:29', 'Expired', '2026-06-06 06:50:29'),
+(10, 9, 'kahjun@gmail.com', '766540', '2026-06-06 15:01:25', 'Used', '2026-06-06 06:56:25');
+
 -- --------------------------------------------------------
 
 --
@@ -469,15 +483,15 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`user_id`, `email`, `password`, `name`, `role`, `profile_picture`, `status`, `created_at`, `updated_at`) VALUES
-(1, 'leeching2565@gmail.com', '123456789', 'System Administrator', 'admin', NULL, 'Active', '2024-01-01 00:00:00', '2026-06-14 20:16:21'),
-(2, 'zhixin@gmail.com', '123', 'Zhi Xin', 'employee', NULL, 'Active', '2026-06-15 08:44:00', '2026-06-15 00:44:00'),
-(3, 'celine@gmail.com', '123', 'Celine', 'employee', NULL, 'Active', '2026-06-15 08:56:00', '2026-06-15 00:56:00'),
-(4, 'yuxuan@gmail.com', '123', 'Yu Xuan', 'employee', NULL, 'Active', '2026-06-15 09:08:00', '2026-06-15 01:08:00'),
-(5, 'xuanting@gmail.com', '123', 'Xuan Ting', 'employee', NULL, 'Active', '2026-06-15 08:22:00', '2026-06-15 00:22:00'),
-(6, 'weiheng@gmail.com', '123', 'Wei Heng', 'employee', NULL, 'Active', '2026-06-15 08:52:00', '2026-06-15 00:52:00'),
-(7, 'jingwen@gmail.com', '123', 'Jing Wen', 'employee', NULL, 'Active', '2026-06-15 08:48:00', '2026-06-15 00:48:00'),
-(8, 'peiyee@gmail.com', '123', 'Pei Yee', 'employee', NULL, 'Active', '2026-06-15 08:35:00', '2026-06-15 00:35:00'),
-(9, 'kahjun@gmail.com', '123', 'Kah Jun', 'employee', NULL, 'Active', '2026-06-15 09:02:00', '2026-06-15 01:02:00');
+(1, 'leeching2565@gmail.com', 'KongLC#56', 'System Administrator', 'admin', NULL, 'Active', '2023-12-31 16:00:00', '2026-05-22 06:23:10'),
+(2, 'zhixin@gmail.com', 'Zxzx0729@', 'Zhi Xin', 'employee', NULL, 'Active', '2026-05-08 00:44:00', '2026-05-25 04:35:35'),
+(3, 'kongcelien0605@gmail.com', 'CkCkkkkk2005@@', 'Celine', 'employee', NULL, 'Active', '2026-05-09 00:56:00', '2026-06-01 00:47:51'),
+(4, 'yuxuan@gmail.com', '219_YuXuan', 'Yu Xuan', 'employee', NULL, 'Active', '2026-05-09 01:08:00', '2026-06-09 08:18:11'),
+(5, 'xuanting@gmail.com', 'h_Xting##', 'Xuan Ting', 'employee', NULL, 'Active', '2026-05-09 00:22:00', '2026-06-12 09:11:25'),
+(6, 'weiheng@gmail.com', 'weiHeng999$', 'Wei Heng', 'employee', NULL, 'Active', '2026-05-10 00:52:00', '2026-06-03 04:30:26'),
+(7, 'jingwen@gmail.com', 'JingW_7111', 'Jing Wen', 'employee', NULL, 'Active', '2026-05-10 00:48:00', '2026-06-08 03:52:32'),
+(8, 'peiyee@gmail.com', 'Pyeeee#425', 'Pei Yee', 'employee', NULL, 'Active', '2026-05-10 00:35:00', '2026-06-13 01:10:36'),
+(9, 'kahjun@gmail.com', 'KahJun1568@', 'Kah Jun', 'employee', NULL, 'Active', '2026-05-10 01:02:00', '2026-06-06 07:00:43');
 
 --
 -- Indexes for dumped tables
