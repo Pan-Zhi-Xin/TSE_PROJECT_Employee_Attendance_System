@@ -451,7 +451,7 @@ CREATE TABLE `password_reset` (
 --
 
 INSERT INTO `password_reset` (`reset_id`, `user_id`, `email`, `token`, `expires_at`, `is_used`, `created_at`) VALUES
-(1, 1, 'leeching2565@gmail.com', '433657', '2026-05-22 14:25:36', 'Used', '2026-05-22 06:20:36'),
+(1, 1, 'LockerTechHQ@gmail.com', '433657', '2026-05-22 14:25:36', 'Used', '2026-05-22 06:20:36'),
 (2, 2, 'zhixin@gmail.com', '338873', '2026-05-25 12:30:37', 'Expired', '2026-05-25 04:25:37'),
 (3, 2, 'zhixin@gmail.com', '487981', '2026-05-25 12:36:41', 'Used', '2026-05-25 04:31:41'),
 (4, 3, 'kongcelien0605@gmail.com', '995122', '2026-06-01 08:49:45', 'Used', '2026-06-01 00:44:45'),
@@ -483,7 +483,7 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`user_id`, `email`, `password`, `name`, `role`, `profile_picture`, `status`, `created_at`, `updated_at`) VALUES
-(1, 'leeching2565@gmail.com', 'KongLC#56', 'System Administrator', 'admin', NULL, 'Active', '2023-12-31 16:00:00', '2026-05-22 06:23:10'),
+(1, 'LockerTechHQ@gmail.com', 'Lock#123', 'System Administrator', 'admin', NULL, 'Active', '2023-12-31 16:00:00', '2026-05-22 06:23:10'),
 (2, 'zhixin@gmail.com', 'Zxzx0729@', 'Zhi Xin', 'employee', NULL, 'Active', '2026-05-08 00:44:00', '2026-05-25 04:35:35'),
 (3, 'kongcelien0605@gmail.com', 'CkCkkkkk2005@@', 'Celine', 'employee', NULL, 'Active', '2026-05-09 00:56:00', '2026-06-01 00:47:51'),
 (4, 'yuxuan@gmail.com', '219_YuXuan', 'Yu Xuan', 'employee', NULL, 'Active', '2026-05-09 01:08:00', '2026-06-09 08:18:11'),
