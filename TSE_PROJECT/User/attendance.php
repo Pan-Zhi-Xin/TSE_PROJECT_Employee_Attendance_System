@@ -375,7 +375,7 @@ foreach($daily_data as $date => $day) {
         .badge-late-early { background: #e83e8c; color: white; }
         .badge-half-day { background: #6f42c1; color: white; }
         .badge-holiday { background: #007bff; color: white; }
-        .badge-early-left { background: #fd7e14; color: white; }
+        .badge-left-early { background: #fd7e14; color: white; }
         .badge-absent { background: #dc3545; color: white; }
         .badge-no-record { background: #6c757d; color: white; }
         
