@@ -14,7 +14,7 @@ $user_id = $_SESSION['user_id'];
 $message = "";
 $messageType = "";
 
-// 1. Get employee_id from user_id
+// 1. get employee_id from user_id
 $employeeSql = "SELECT employee_id FROM employees WHERE user_id = ?";
 $employeeStmt = $conn->prepare($employeeSql);
 $employeeStmt->bind_param("i", $user_id);
@@ -32,14 +32,14 @@ $employeeStmt->close();
 $today = date("Y-m-d");
 $displayDate = date("d/m/Y");
 
-// Get current time
+// get current time
 $currentTime = date("H:i:s");
 $currentTimestamp = strtotime($currentTime);
 
-// Define which statuses require a reason
+// define which statuses require a reason
 $reasonRequiredStatuses = ['late', 'left_early', 'late_early'];
 
-// 2. Check today's attendance records from database
+// 2. check today's attendance records from the database
 $todayRecords = [];
 $abnormalRecords = [];
 $hasAnyRecord = false; 
@@ -66,7 +66,6 @@ while ($row = $result->fetch_assoc()) {
     $todayRecords[] = $row;
     $hasAnyRecord = true; 
     
-    // Collect records that need a reason
     if (in_array($row['status'], $reasonRequiredStatuses)) {
         $abnormalRecords[] = $row;
     }
@@ -75,11 +74,11 @@ $stmt->close();
 
 $hasAbnormalRecords = (count($abnormalRecords) > 0);
 
-// 3. Handle form submission 
+// 3. handle form submission 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
     $reasons = $_POST['reason'] ?? [];
     
-    // Log what was submitted
+    // log what was submitted
     error_log("=== FORM SUBMISSION ===");
     error_log("Reasons submitted: " . print_r($reasons, true));
     error_log("Employee ID: " . $employee_id);
@@ -88,11 +87,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
     $updatedCount = 0;
     $failedUpdates = [];
     
-    // Process each submitted reason
+    // process each submitted reason
     foreach ($reasons as $record_id => $reason) {
         $reason = trim($reason);
         
-        // Log each update attempt
+        // log each update attempt
         error_log("Processing record_id: " . $record_id . " | Reason: " . $reason);
         
         if ($reason === '') {
@@ -102,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
             break;
         }
         
-        // Verify the record belongs to this employee and session
+        // verify the record belongs to this employee and session
         $verifySql = "
             SELECT record_id, session, status, notes 
             FROM attendance_records 
@@ -127,7 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
         error_log("Found record - Session: " . $recordData['session'] . " | Current notes: " . $recordData['notes']);
         $verifyStmt->close();
         
-        // Perform the update
+        // perform the update
         $updateSql = "
             UPDATE attendance_records
             SET notes = ?
@@ -136,7 +135,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
             AND record_date = ?
         ";
         $updateStmt = $conn->prepare($updateSql);
-        // record_id is VARCHAR(50), so use 's' not 'i'
         $updateStmt->bind_param("ssss", $reason, $record_id, $employee_id, $today);
         
         if ($updateStmt->execute()) {
@@ -154,12 +152,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
         $updateStmt->close();
     }
     
-    // Refresh data after updates
+    // refresh data after updates
     if ($allUpdated && $updatedCount > 0) {
         $message = "Reasons submitted successfully! (" . $updatedCount . " record(s) updated)";
         $messageType = "success";
         
-        // REFRESH ALL DATA
+        // refresh all data
         $refreshSql = "
             SELECT 
                 record_id,
@@ -192,7 +190,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
         $refreshStmt->close();
         $hasAbnormalRecords = (count($abnormalRecords) > 0);
         
-        // Log the refreshed data
         error_log("=== REFRESHED DATA ===");
         error_log("Today Records: " . print_r($todayRecords, true));
         error_log("Abnormal Records: " . print_r($abnormalRecords, true));
@@ -206,7 +203,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
     }
 }
 
-// Status labels for display
+// status labels for display
 $statusLabels = [
     'late'        => 'Late',
     'left_early'  => 'Early Leave',
@@ -227,7 +224,7 @@ $sessionTimes = [
     'afternoon' => '1:00 PM - 6:00 PM'
 ];
 
-// Display current abnormal records
+// display current abnormal records
 error_log("=== CURRENT STATE ===");
 error_log("Abnormal Records Count: " . count($abnormalRecords));
 error_log("Has Any Record: " . ($hasAnyRecord ? 'Yes' : 'No'));
@@ -244,7 +241,6 @@ foreach ($abnormalRecords as $record) {
     <title>Attendance Reason · LockerTech</title>
     <script src="https://kit.fontawesome.com/c2f7d169d6.js" crossorigin="anonymous"></script>
     <style>
-        /* --- Reset and Base --- */
         * {
             margin: 0;
             padding: 0;
@@ -259,7 +255,7 @@ foreach ($abnormalRecords as $record) {
             background: #f0f4fc;
         }
 
-        /* --- Background with blur --- */
+        /* ---- background with blur ---- */
         body::before {
             content: "";
             position: fixed;
@@ -277,7 +273,7 @@ foreach ($abnormalRecords as $record) {
             z-index: -1;
         }
 
-        /* --- Main container (full-width, centered) --- */
+        /* ---- main container ---- */
         .container {
             flex: 1;
             display: flex;
@@ -290,7 +286,7 @@ foreach ($abnormalRecords as $record) {
             margin-top: 40px;
         }
 
-        /* --- Card wrapper: form left, image right --- */
+        /* ---- card wrapper ---- */
         .login-wrapper {
             display: flex;
             flex-wrap: wrap;
@@ -305,7 +301,7 @@ foreach ($abnormalRecords as $record) {
             border: 1px solid rgba(255, 255, 255, 0.3);
         }
 
-        /* --- Left column (form) --- */
+        /* ---- login form ---- */
         .login-col {
             flex: 1 1 50%;
             padding: 48px 40px 40px 40px;
@@ -316,7 +312,7 @@ foreach ($abnormalRecords as $record) {
             backdrop-filter: blur(2px);
         }
 
-        /* --- Right column (image) --- */
+        /* ---- image ---- */
         .image-col {
             flex: 1 1 50%;
             background: #d9e2ef;
@@ -442,7 +438,7 @@ foreach ($abnormalRecords as $record) {
             border-radius: 16px;
         }
 
-        /* Buttons match login */
+        /* ---- button ---- */
         .submit-btn {
             width: 100%;
             padding: 16px;
@@ -476,7 +472,7 @@ foreach ($abnormalRecords as $record) {
             box-shadow: none;
         }
 
-        /* Messages match login error style */
+        /* ---- message ---- */
         .message {
             padding: 12px 14px;
             border-radius: 12px;
@@ -560,7 +556,6 @@ foreach ($abnormalRecords as $record) {
             border-color: #e91e63;
         }
 
-        /* Record items */
         .record-item {
             border: 1.5px solid #e2e8f0;
             border-radius: 16px;
@@ -589,7 +584,7 @@ foreach ($abnormalRecords as $record) {
             color: #0b1e3a;
         }
 
-        /* Badges */
+        /* ---- badge ---- */
         .badge {
             padding: 4px 14px;
             border-radius: 40px;
@@ -673,7 +668,7 @@ foreach ($abnormalRecords as $record) {
             color: #0b1e3a;
         }
 
-        /* Submitted reason box */
+        /* ---- submmitted reason box ---- */
         .submitted-reason-box {
             padding: 12px 16px;
             background: #e8f5e9;
@@ -695,20 +690,19 @@ foreach ($abnormalRecords as $record) {
             font-size: 15px;
         }
 
-        /* Session time */
+        /* ---- session time ---- */
         .session-time {
             font-size: 12px;
             color: #64748b;
             font-weight: normal;
         }
 
-        /* Status icon */
+        /* ---- status icon ---- */
         .status-icon {
             font-size: 18px;
             margin-right: 5px;
         }
 
-        /* --- Responsive --- */
         @media (max-width: 720px) {
             .login-wrapper {
                 flex-direction: column;
@@ -777,7 +771,7 @@ foreach ($abnormalRecords as $record) {
 <section class="container">
         <div class="login-wrapper">
 
-            <!-- LEFT COLUMN: Reason Form -->
+            <!---- reason form ---->
             <div class="login-col">
                 <div class="frame">
                     <div class="section">
@@ -791,13 +785,13 @@ foreach ($abnormalRecords as $record) {
                         </div>
                     <?php endif; ?>
 
-                    <!-- Working Hours Info -->
+                    <!---- working hours info ---->
                     <div class="working-hours-info">
                         Working Hours: 9:00 AM - 6:00 PM (Current time: <?php echo date('h:i A'); ?>)
                         <br><small>Reasons can be submitted until 11:59 PM today</small>
                     </div>
 
-                    <!-- Date Display-->
+                     <!---- date display ---->
                     <div class="form-group">
                         <label for="date">Date</label>
                         <input type="text" id="date" class="form-control" value="<?php echo $displayDate; ?>" readonly>
@@ -805,7 +799,7 @@ foreach ($abnormalRecords as $record) {
 
                     <?php
                     
-                    // CASE 1: Check if it's past midnight (00:00 of next day)
+                    // CASE 1: check if it's past midnight (00:00 of next day)
                     $isEarlyMorning = ($currentTimestamp >= strtotime('00:00:00') && $currentTimestamp < strtotime('09:00:00'));
                     
                     if ($isEarlyMorning) {
@@ -816,11 +810,11 @@ foreach ($abnormalRecords as $record) {
                         </div>
                         <?php
                     }
-                    // CASE 2: Within the day (9:00 AM to 11:59 PM)
+                    // CASE 2: within the day (9:00 AM to 11:59 PM)
                     else {
-                        // Check if there are any records that need a reason (late, left_early, late_early)
+                        // check if there are any records that need a reason (late, left_early, late_early)
                         if ($hasAbnormalRecords) {
-                            // Check if ALL abnormal records already have a reason submitted
+                            // check if all abnormal records already have a reason submitted
                             $allHaveReasons = true;
                             foreach ($abnormalRecords as $record) {
                                 if (empty($record['notes'])) {
@@ -831,7 +825,7 @@ foreach ($abnormalRecords as $record) {
                             
                             if ($allHaveReasons) {
                                 ?>                              
-                                <!-- Show summary of all sessions -->
+                                <!---- show summary of all sessions ---->
                                 <div class="record-summary">
                                     <?php foreach ($todayRecords as $record): 
                                         $session = $record['session'];
@@ -871,9 +865,8 @@ foreach ($abnormalRecords as $record) {
                                 <?php endforeach; ?>
                                 <?php
                             } else {
-                                // Some records don't have reasons yet - show form
                                 ?>
-                                <!-- Show summary of all sessions -->
+                                <!-- show summary of all sessions -->
                                 <div class="record-summary">
                                     <?php foreach ($todayRecords as $record): 
                                         $session = $record['session'];
@@ -902,9 +895,8 @@ foreach ($abnormalRecords as $record) {
                                         $status = $record['status'];
                                         $existingNote = $record['notes'] ?? '';
                                         
-                                        // Skip showing textarea if already has a reason
+                                        // skip showing textarea if already has a reason
                                         if (!empty($existingNote)) {
-                                            // Show the submitted reason instead
                                             ?>
                                             <div class="record-item">
                                                 <div class="record-header">
@@ -925,7 +917,7 @@ foreach ($abnormalRecords as $record) {
                                             continue;
                                         }
                                         
-                                        // Display appropriate info box based on status
+                                        // display appropriate info box based on status
                                         $statusClass = '';
                                         $statusMessage = '';
                                         if ($status == 'late') {
@@ -969,12 +961,12 @@ foreach ($abnormalRecords as $record) {
                                 <?php
                             }
                         }
-                        // CASE 2b: No records that need a reason (all present, absent, holiday, half_day, or no records)
+                        // CASE 2b: no records that need a reason (all present, absent, holiday, half_day, or no records)
                         else {
-                            // Check if there are ANY records today
+                            // check if there are any records today
                             if ($hasAnyRecord) {
 
-                                // Check whether ALL sessions are present
+                                // check whether all sessions are present
                                 $allPresent = true;
 
                                 foreach ($todayRecords as $record) {
@@ -993,7 +985,7 @@ foreach ($abnormalRecords as $record) {
                                     <?php
           
                                 } else {
-                                    // Records exist but none are 'present' - they might be absent, half_day, or holiday
+                                    // records exist but none are 'present' - might be absent, half_day, or holiday
                                     ?>
                                     <div class="info-box" style="background:#e3f2fd; color:#0d47a1; border-color:#1e88e5;">
                                         <?php 
@@ -1009,7 +1001,7 @@ foreach ($abnormalRecords as $record) {
                                     </div>
                                     <?php
                                     
-                                    // Show summary of all records
+                                    // show summary of all records
                                     ?>
                                     <div class="record-summary">
                                         <?php foreach ($todayRecords as $record): 
@@ -1041,7 +1033,7 @@ foreach ($abnormalRecords as $record) {
                 </div>
             </div>
 
-            <!-- RIGHT COLUMN: Image -->
+            <!---- image ---->
             <div class="image-col">
                 <img src="../reason.png" alt="Attendance reason visual"
                      onerror="this.style.display='none'; this.parentElement.querySelector('.img-placeholder').style.display='flex';">
@@ -1055,7 +1047,7 @@ foreach ($abnormalRecords as $record) {
 
     <script>
         (function() {
-            // Handle image fallback
+            // handle image fallback
             const img = document.querySelector('.image-col img');
             if (img) {
                 img.addEventListener('error', function() {

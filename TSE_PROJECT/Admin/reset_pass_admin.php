@@ -11,7 +11,7 @@ $successUserName = "";
 function validatePassword($password) {
     $errors = [];
 
-    // Handle empty password
+    // handle empty password
     if (empty($password)) {
         $errors[] = "Password cannot be empty";
         return $errors;
@@ -29,7 +29,6 @@ function validatePassword($password) {
     if(!preg_match('/[0-9]/', $password)) {
         $errors[] = "Password must contain at least 1 number";
     }
-    // Updated special character regex to be more inclusive
     if(!preg_match('/[!@#$%^&*(),.?":{}|<>_\-+=~`\[\]\\\\\/;]/', $password)) {
         $errors[] = "Password must contain at least 1 special symbol";
     }
@@ -40,7 +39,7 @@ function validatePassword($password) {
     return $errors;
 }
 
-// Ensure user came from OTP verification
+// ensure user came from OTP verification
 if (!isset($_SESSION['reset_email']) || !isset($_SESSION['reset_user_id'])) {
     header("Location: forgot_pass_admin.php");
     exit();
@@ -65,7 +64,6 @@ if (isset($_POST['reset_password'])) {
         else {
             $user_id = $_SESSION['reset_user_id'];
             
-            // Use prepared statement for security
             $stmt = mysqli_prepare($conn, "SELECT name FROM users WHERE user_id = ?");
             mysqli_stmt_bind_param($stmt, "i", $user_id);
             mysqli_stmt_execute($stmt);
@@ -74,7 +72,6 @@ if (isset($_POST['reset_password'])) {
             $user_name = $user['name'];
             mysqli_stmt_close($stmt);
 
-            // Use prepared statement for update as well
             $stmt = mysqli_prepare($conn, "UPDATE users SET password = ? WHERE user_id = ?");
             mysqli_stmt_bind_param($stmt, "si", $new_password, $user_id);
             
@@ -82,7 +79,7 @@ if (isset($_POST['reset_password'])) {
                 $successUserName = $user_name;
                 $showSuccessPopup = true;
                 
-                // Clear session variables
+                // clear session variables
                 unset($_SESSION['reset_email']);
                 unset($_SESSION['reset_user_id']);
                 mysqli_stmt_close($stmt);
@@ -219,7 +216,7 @@ if (isset($_POST['reset_password'])) {
             backdrop-filter: blur(2px);
         }
 
-        /* Welcome section styling */
+        /* ----- welcome section ----- */
         .welcome-section {
             margin-bottom: 30px;
         }
@@ -239,7 +236,7 @@ if (isset($_POST['reset_password'])) {
             margin-top: 0;
         }
 
-        /* Form group for better spacing */
+        /* ----- form group ----- */
         .form-group {
             margin-bottom: 20px;
         }
@@ -600,7 +597,6 @@ if (isset($_POST['reset_password'])) {
             transform: scale(0.98);
         }
 
-        /* ----- responsive ----- */
         @media (max-width: 720px) {
             .login-wrapper {
                 flex-direction: column;
@@ -674,7 +670,7 @@ if (isset($_POST['reset_password'])) {
 <section class="container">
     <div class="login-wrapper">
 
-        <!-- LEFT COLUMN: Reset Password Form -->
+        <!---- reset password form ---->
         <div class="login-col">
             <div class="welcome-section">
                 <h2>Reset Password</h2>
@@ -686,7 +682,7 @@ if (isset($_POST['reset_password'])) {
             <?php endif; ?>
 
             <form method="POST" id="resetForm">
-                <!-- New Password field -->
+                <!---- new password field ---->
                 <div class="form-group">
                     <label for="newPassword"><i class="fas fa-lock"></i> New Password</label>
                     <div class="pass-field">
@@ -704,7 +700,7 @@ if (isset($_POST['reset_password'])) {
 
                 <div id="passwordMatchError" class="error-message-small"></div>
 
-                <!-- Confirm Password field -->
+                <!---- confirm password field ---->
                 <div class="form-group">
                     <label for="confirmPassword"><i class="fas fa-check-circle"></i> Confirm Password</label>
                     <div class="pass-field">
@@ -720,7 +716,7 @@ if (isset($_POST['reset_password'])) {
                     </div>
                 </div>
 
-                <!-- Password Requirements -->
+                <!---- password requirements ---->
                 <div class="password-requirements">
                     <h4>Password Requirements:</h4>
                     <ul>
@@ -741,7 +737,7 @@ if (isset($_POST['reset_password'])) {
             </div>
         </div>
 
-        <!-- RIGHT COLUMN: Image -->
+        <!---- image ---->
         <div class="image-col">
             <img src="../login_admin_background.png" alt="Reset password visual" 
                  onerror="this.style.display='none'; this.parentElement.querySelector('.img-placeholder').style.display='flex';">
@@ -756,7 +752,7 @@ if (isset($_POST['reset_password'])) {
     </div>
 </section>
 
-<!-- ========== SUCCESS POPUP ========== -->
+<!---- success popup ---->
 <div class="popup-overlay <?php echo $showSuccessPopup ? '' : 'hidden'; ?>" id="successPopup">
     <div class="popup-box">
         <div class="popup-icon">🎉</div>
@@ -773,7 +769,7 @@ if (isset($_POST['reset_password'])) {
 
 <script>
     (function() {
-        // ---------- toggle password visibility ----------
+        // toggle password visibility 
         document.querySelectorAll('.toggle-password-wrapper').forEach(function(wrapper) {
             wrapper.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -796,7 +792,6 @@ if (isset($_POST['reset_password'])) {
             });
         });
 
-        // ---------- DOM refs ----------
         const newPassword = document.getElementById('newPassword');
         const confirmPassword = document.getElementById('confirmPassword');
         const resetPasswordBtn = document.getElementById('resetPasswordBtn');
@@ -810,11 +805,10 @@ if (isset($_POST['reset_password'])) {
         const reqSpecial = document.getElementById('req-special');
         const reqSpace = document.getElementById('req-space');
 
-        // ---------- popup elements ----------
+        // popup elements 
         const popupOverlay = document.getElementById('successPopup');
         const popupOkBtn = document.getElementById('popupOkBtn');
 
-        // ---------- validation helpers ----------
         function checkPasswordRequirements(password) {
             let allValid = true;
             if (password.length >= 8) { reqLength.classList.add('valid'); } else { reqLength.classList.remove('valid'); allValid = false; }
@@ -859,22 +853,21 @@ if (isset($_POST['reset_password'])) {
         newPassword.addEventListener('input', validateForm);
         confirmPassword.addEventListener('input', validateForm);
 
-        // ---------- initial validation ----------
         validateForm();
 
-        // ---------- popup OK button redirect ----------
+        // popup OK button (redirect to the login admin page)
         popupOkBtn.addEventListener('click', function() {
             window.location.href = 'login_admin.php';
         });
 
-        // ---------- Auto-redirect if popup is shown ----------
+        // auto-redirect for popup
         <?php if ($showSuccessPopup): ?>
             setTimeout(function() {
                 window.location.href = 'login_admin.php';
             }, 5000);
         <?php endif; ?>
 
-        // ---------- Handle image fallback ----------
+        // handle image fallback
         const img = document.querySelector('.image-col img');
         if (img) {
             img.addEventListener('error', function() {

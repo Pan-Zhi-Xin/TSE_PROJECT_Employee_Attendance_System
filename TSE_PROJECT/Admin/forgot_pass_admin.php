@@ -12,7 +12,7 @@ require '../PHPMailer/src/PHPMailer.php';
 require '../PHPMailer/src/SMTP.php';
 
 $message = "";
-$email = ""; // Initialize $email variable
+$email = ""; 
 
 if (isset($_POST['send_otp'])) {
     $email = trim($_POST['email']);
@@ -22,7 +22,7 @@ if (isset($_POST['send_otp'])) {
     } else {
         $email = mysqli_real_escape_string($conn, $email);
 
-        // Check if admin exists
+        // check if admin exists
         $sql = "SELECT u.user_id, u.name, u.email
                 FROM users u
                 INNER JOIN admins a ON u.user_id = a.user_id
@@ -35,18 +35,18 @@ if (isset($_POST['send_otp'])) {
             $user_id = $user['user_id'];
             $name = $user['name'];
 
-            // Generate 6-digit OTP (stored in token field)
+            // generate 6-digit OTP 
             $otp = rand(100000, 999999);
             $expires_at = date("Y-m-d H:i:s", strtotime("+5 minutes"));
 
-            // Insert into password_reset table
+            // insert into password_reset table
             $insert = mysqli_query($conn, "INSERT INTO password_reset (user_id, email, token, expires_at, is_used)
                                            VALUES ('$user_id', '$email', '$otp', '$expires_at', 'Active')");
 
             if (!$insert) {
                 $message = "Database error: Could not save reset request.";
             } else {
-                // Send email with OTP
+                // send email with OTP
                 try {
                     $mail = new PHPMailer(true);
                     $mail->isSMTP();
@@ -72,7 +72,6 @@ if (isset($_POST['send_otp'])) {
 
                     $mail->send();
 
-                    // Store data in session and redirect
                     $_SESSION['reset_email'] = $email;
                     $_SESSION['reset_user_id'] = $user_id;
                     header("Location: verify_otp_admin.php");
@@ -175,7 +174,7 @@ if (isset($_POST['send_otp'])) {
             margin: 0;
         }
 
-        /* ----- main container (split layout) ----- */
+        /* ----- main container ----- */
         .container {
             flex: 1;
             display: flex;
@@ -200,7 +199,7 @@ if (isset($_POST['send_otp'])) {
             border: 1px solid rgba(255, 255, 255, 0.3);
         }
 
-        /* ----- left column: form ----- */
+        /* ----- form ----- */
         .login-col {
             flex: 1 1 50%;
             padding: 48px 40px 40px 40px;
@@ -337,7 +336,7 @@ if (isset($_POST['send_otp'])) {
             font-size: 18px;
         }
 
-        /* ----- right column: image  ----- */
+        /* ----- image  ----- */
         .image-col {
             flex: 1 1 50%;
             background: #d9e2ef;
@@ -388,7 +387,6 @@ if (isset($_POST['send_otp'])) {
             gap: 10px;
         }
 
-        /* ----- responsiveness ----- */
         @media (max-width: 720px) {
             .login-wrapper {
                 flex-direction: column;
@@ -454,7 +452,7 @@ if (isset($_POST['send_otp'])) {
     <section class="container">
         <div class="login-wrapper">
 
-            <!-- LEFT COLUMN: Form  -->
+            <!---- form ---->
             <div class="login-col">
                 <div class="welcome-section">
                     <h2>Forgot Password</h2>
@@ -481,7 +479,7 @@ if (isset($_POST['send_otp'])) {
                 </div>
             </div>
 
-            <!-- RIGHT COLUMN: Image -->
+            <!---- image ---->
             <div class="image-col">
                 <img src="../login_admin_background.png" alt="Admin login visual" 
                      onerror="this.style.display='none'; this.parentElement.querySelector('.img-placeholder').style.display='flex';">
@@ -499,7 +497,7 @@ if (isset($_POST['send_otp'])) {
 
     <script>
         (function() {
-            // Handle image fallback (same as login)
+            // handle image fallback
             const img = document.querySelector('.image-col img');
             if (img) {
                 img.addEventListener('error', function() {

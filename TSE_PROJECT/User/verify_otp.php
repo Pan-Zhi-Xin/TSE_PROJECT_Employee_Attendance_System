@@ -21,8 +21,6 @@ if (!isset($_SESSION['reset_email']) || !isset($_SESSION['reset_user_id'])) {
 $user_id = (int)$_SESSION['reset_user_id'];
 $email = mysqli_real_escape_string($conn, $_SESSION['reset_email']);
 
-
-// Auto-expire ALL expired OTPs
 mysqli_query($conn, "
     UPDATE password_reset 
     SET is_used = 'Expired' 
@@ -30,7 +28,6 @@ mysqli_query($conn, "
     AND expires_at < NOW()
 ");
 
-// Auto-expire specific user's expired OTPs
 mysqli_query($conn, "
     UPDATE password_reset 
     SET is_used = 'Expired' 
@@ -55,21 +52,21 @@ $expiryQuery = mysqli_query($conn, "
 
 if ($expiryQuery && mysqli_num_rows($expiryQuery) > 0) {
     $expiryRow = mysqli_fetch_assoc($expiryQuery);
-    // Convert to timestamp (no UTC conversion needed since we store local time)
+    // convert to timestamp 
     $expires_timestamp = strtotime($expiryRow['expires_at']) * 1000;
     
-    // Check if already expired
+    // check if already expired
     if (time() > strtotime($expiryRow['expires_at'])) {
         $is_expired = true;
     }
 }
 
-// Handle Request New OTP
+// handle Request New OTP
 if (isset($_POST['request_new_otp'])) {
     $user_id = (int)$_SESSION['reset_user_id'];
     $email = mysqli_real_escape_string($conn, $_SESSION['reset_email']);
     
-    // Get user details
+    // get user details
     $sql = "SELECT u.name, u.email
             FROM users u
             WHERE u.user_id = $user_id AND u.role = 'employee'";
@@ -79,20 +76,20 @@ if (isset($_POST['request_new_otp'])) {
         $user = mysqli_fetch_assoc($result);
         $name = $user['name'];
         
-        // Generate new 6-digit OTP
+        // generate new 6-digit OTP
         $otp = rand(100000, 999999);
         
-        // Mark old OTPs as expired
+        // mark old OTPs as expired
         mysqli_query($conn, "UPDATE password_reset SET is_used = 'Expired' 
                              WHERE user_id = $user_id AND email = '$email' AND is_used = 'Active'");
         
-        // Insert new OTP with local time (Asia/Kuala_Lumpur)
+        // insert new OTP with local time 
         $expires_at = date("Y-m-d H:i:s", strtotime("+5 minutes"));
         $insert = mysqli_query($conn, "INSERT INTO password_reset (user_id, email, token, expires_at, is_used)
                                        VALUES ('$user_id', '$email', '$otp', '$expires_at', 'Active')");
         
         if ($insert) {
-            // Get the expires_at value for JavaScript
+            // get the expires_at value for JavaScript
             $expiryQuery = mysqli_query($conn, "
                 SELECT expires_at
                 FROM password_reset
@@ -109,7 +106,7 @@ if (isset($_POST['request_new_otp'])) {
                 $is_expired = false;
             }
             
-            // Send email with new OTP
+            // send email with new OTP
             try {
                 $mail = new PHPMailer(true);
                 $mail->isSMTP();
@@ -149,7 +146,7 @@ if (isset($_POST['request_new_otp'])) {
     }
 }
 
-// Handle Verify OTP
+// handle Verify OTP
 if (isset($_POST['verify_otp'])) {
     $otp = trim($_POST['otp']);
     $user_id = (int)$_SESSION['reset_user_id'];
@@ -161,7 +158,6 @@ if (isset($_POST['verify_otp'])) {
     } else {
         $otp = mysqli_real_escape_string($conn, $otp);
 
-        // Query using UTC_TIMESTAMP() to compare with expires_at (stored in UTC)
         $sql = "SELECT reset_id, token, expires_at, is_used 
                 FROM password_reset 
                 WHERE user_id = $user_id 
@@ -177,10 +173,10 @@ if (isset($_POST['verify_otp'])) {
             $row = mysqli_fetch_assoc($result);
             $reset_id = $row['reset_id'];
 
-            // Mark as used
+            // mark as used
             mysqli_query($conn, "UPDATE password_reset SET is_used = 'Used' WHERE reset_id = $reset_id");
 
-            // Redirect to reset password page
+            // redirect to reset password page
             header("Location: reset_pass.php");
             exit();
         } else {
@@ -348,7 +344,7 @@ if (isset($_POST['verify_otp'])) {
             color: #4f6ef7;
         }
 
-        /* Message styling */
+        /* ----- message ----- */
         .message {
             padding: 12px 14px;
             border-radius: 12px;
@@ -386,7 +382,7 @@ if (isset($_POST['verify_otp'])) {
             font-size: 18px;
         }
 
-        /* Countdown styling */
+        /* ----- countdown ----- */
         #countdown {
             padding: 14px 16px;
             border-radius: 12px;
@@ -409,7 +405,7 @@ if (isset($_POST['verify_otp'])) {
             border-left: 5px solid #dc2626;
         }
 
-        /* Form group */
+        /* ----- form group ----- */
         .form-group {
             margin-bottom: 20px;
         }
@@ -623,7 +619,6 @@ if (isset($_POST['verify_otp'])) {
             gap: 10px;
         }
 
-        /* Responsive */
         @media (max-width: 720px) {
             .login-wrapper {
                 flex-direction: column;
@@ -693,7 +688,7 @@ if (isset($_POST['verify_otp'])) {
 
     <section class="container">
         <div class="login-wrapper">
-            <!-- LEFT COLUMN: Verify OTP Form -->
+            <!---- verify OTP form ---->
             <div class="login-col">
                 <div class="welcome-section">
                     <h2>Verify OTP</h2>
@@ -753,7 +748,7 @@ if (isset($_POST['verify_otp'])) {
                 </div>
             </div>
 
-            <!-- RIGHT COLUMN: Image -->
+            <!---- image ---->
             <div class="image-col">
                 <img src="../login_background.jpeg" alt="Employee login visual"
                      onerror="this.style.display='none'; this.parentElement.querySelector('.img-placeholder').style.display='flex';">
@@ -785,12 +780,12 @@ if (isset($_POST['verify_otp'])) {
                 document.getElementById("countdown").innerHTML = "OTP Expired! Please request a new one.";
                 document.getElementById("countdown").className = "expired";
                 
-                // Disable verify button
+                // disable verify button
                 const verifyBtn = document.getElementById("verifyBtn");
                 verifyBtn.disabled = true;
                 verifyBtn.innerHTML = '<i class="fas fa-times-circle"></i> OTP Expired';
                 
-                // Disable OTP input
+                // disable OTP input
                 document.getElementById("otpInput").disabled = true;
                 
                 return;
@@ -808,7 +803,6 @@ if (isset($_POST['verify_otp'])) {
             document.getElementById("countdown").className = "active";
         }
 
-        // Initial check
         if (isExpired) {
             document.getElementById("countdown").innerHTML = "OTP Expired! Please request a new one.";
             document.getElementById("countdown").className = "expired";
@@ -820,7 +814,7 @@ if (isset($_POST['verify_otp'])) {
         updateCountdown();
         setInterval(updateCountdown, 1000);
 
-        // Handle image fallback
+        // handle image fallback
         const img = document.querySelector('.image-col img');
         if (img) {
             img.addEventListener('error', function() {

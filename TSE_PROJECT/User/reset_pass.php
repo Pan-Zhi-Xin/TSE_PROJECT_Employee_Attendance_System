@@ -11,7 +11,7 @@ $successUserName = "";
 function validatePassword($password) {
     $errors = [];
 
-    // Handle empty password
+    // handle empty password
     if (empty($password)) {
         $errors[] = "Password cannot be empty";
         return $errors;
@@ -29,7 +29,6 @@ function validatePassword($password) {
     if(!preg_match('/[0-9]/', $password)) {
         $errors[] = "Password must contain at least 1 number";
     }
-    // Updated special character regex to be more inclusive
     if(!preg_match('/[!@#$%^&*(),.?":{}|<>_\-+=~`\[\]\\\\\/;]/', $password)) {
         $errors[] = "Password must contain at least 1 special symbol";
     }
@@ -40,7 +39,7 @@ function validatePassword($password) {
     return $errors;
 }
 
-// Ensure user came from OTP verification
+// ensure user came from OTP verification
 if (!isset($_SESSION['reset_email']) || !isset($_SESSION['reset_user_id'])) {
     header("Location: forgot_pass.php");
     exit();
@@ -65,7 +64,6 @@ if (isset($_POST['reset_password'])) {
         else {
             $user_id = $_SESSION['reset_user_id'];
             
-            // Use prepared statement for security - get user name
             $stmt = mysqli_prepare($conn, "SELECT name FROM users WHERE user_id = ?");
             mysqli_stmt_bind_param($stmt, "i", $user_id);
             mysqli_stmt_execute($stmt);
@@ -74,7 +72,6 @@ if (isset($_POST['reset_password'])) {
             $user_name = $user['name'];
             mysqli_stmt_close($stmt);
 
-            // Use prepared statement for update as well
             $stmt = mysqli_prepare($conn, "UPDATE users SET password = ? WHERE user_id = ?");
             mysqli_stmt_bind_param($stmt, "si", $new_password, $user_id);
             
@@ -82,7 +79,7 @@ if (isset($_POST['reset_password'])) {
                 $successUserName = $user_name;
                 $showSuccessPopup = true;
                 
-                // Clear session variables
+                // clear session variables
                 unset($_SESSION['reset_email']);
                 unset($_SESSION['reset_user_id']);
             }
@@ -90,7 +87,6 @@ if (isset($_POST['reset_password'])) {
                 $message = "Database error: Could not update password.";
             }
             
-            // Close the statement only once, after all operations
             mysqli_stmt_close($stmt);
         }
     }

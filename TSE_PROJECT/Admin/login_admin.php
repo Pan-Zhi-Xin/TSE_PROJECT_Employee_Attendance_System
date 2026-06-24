@@ -5,7 +5,7 @@ include '../db_connection.php';
 $error = '';
 $email = '';
 
-// If already logged in, redirect to dashboard
+// if already logged in, redirect to dashboard
 if(isset($_SESSION['user_id']) && isset($_SESSION['role']) && $_SESSION['role'] == 'admin') {
     header("Location: dashboard_admin.php");
     exit();
@@ -18,7 +18,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (empty($email) || empty($password)) {
         $error = "Both email and password are required.";
     } else {
-        // Validate email has @ and ends with .com
+        // validate email 
         if (!strpos($email, '@')) {
             $error = "Email must contain '@' symbol.";
         } elseif (!preg_match('/\.com$/', $email)) {
@@ -191,7 +191,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         backdrop-filter: blur(2px);
     }
 
-    /* Welcome section styling */
+    /* ----- welcome section -----*/
     .welcome-section {
         margin-bottom: 30px;
     }
@@ -211,7 +211,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         margin-top: 0;
     }
 
-    /* Form group for better spacing */
     .form-group {
         margin-bottom: 20px;
     }
@@ -499,10 +498,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <section class="container">
         <div class="login-wrapper">
 
-            <!-- LEFT COLUMN: Login Form -->
+            <!---- login form ---->
             <div class="login-col">
                 <div class="frame">
-                    <!-- Welcome Back with proper positioning -->
+                    <!---- welcome back section ---->
                     <div class="welcome-section">
                         <h2>Welcome Back</h2>
                         <p class="welcome-subtitle">Sign in to your admin account</p>
@@ -513,13 +512,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <?php endif; ?>
 
                     <form method="post" action="">
-                        <!-- Email field with proper positioning -->
+                        <!---- email field ---->
                         <div class="form-group">
                             <label for="email"><i class="fas fa-envelope"></i> Email Address</label>
                             <input type="email" id="email" placeholder="admin@lockertech.com" name="email" value="<?php echo htmlspecialchars($email); ?>" required>
                         </div>
 
-                        <!-- Password field -->
+                        <!---- password field ---->
                         <div class="form-group">
                             <label for="password"><i class="fas fa-lock"></i> Password</label>
                             <div class="pass-field">
@@ -541,7 +540,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </div>
             </div>
 
-            <!-- Image -->
+            <!---- image ---->
             <div class="image-col">
                 <img src="../login_admin_background.png" alt="Admin login visual" 
                      onerror="this.style.display='none'; this.parentElement.querySelector('.img-placeholder').style.display='flex';">
@@ -558,7 +557,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <script>
         (function() {
-            // Toggle password visibility
+            // toggle password visibility
             const passwordInput = document.getElementById('password');
             const toggleWrapper = document.querySelector('.toggle-password-wrapper');
             const toggleIcon = document.getElementById('show-password');
@@ -567,11 +566,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 toggleWrapper.addEventListener('click', function(e) {
                     e.preventDefault();
                     
-                    // Toggle password visibility
+                    // toggle password visibility
                     const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
                     passwordInput.setAttribute('type', type);
 
-                    // Toggle between fa-eye and fa-eye-slash
+                    // toggle between fa-eye and fa-eye-slash
                     if (toggleIcon.classList.contains('fa-eye')) {
                         toggleIcon.classList.remove('fa-eye');
                         toggleIcon.classList.add('fa-eye-slash');
@@ -584,7 +583,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 });
             }
 
-            // Handle image fallback
+            // handle image fallback
             const img = document.querySelector('.image-col img');
             if (img) {
                 img.addEventListener('error', function() {
