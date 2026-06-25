@@ -20,16 +20,16 @@ $error_message = '';
 if($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_status'])) {
     $record_id = mysqli_real_escape_string($conn, $_POST['record_id']);
     $new_status = mysqli_real_escape_string($conn, $_POST['new_status']);
-    $reason = isset($data['reason']) && trim($data['reason']) !== '' ? mysqli_real_escape_string($conn, trim($data['reason'])) : null;
+    $reason = isset($_POST['reason']) && trim($_POST['reason']) !== '' ? mysqli_real_escape_string($conn, trim($_POST['reason'])) : null;
     
     if($reason === null) {
-    $update_query = "UPDATE attendance_records 
-                     SET status = '$new_status', notes = NULL 
-                     WHERE record_id = '$record_id'";
+        $update_query = "UPDATE attendance_records 
+                         SET status = '$new_status', notes = NULL 
+                         WHERE record_id = '$record_id'";
     } else {
         $update_query = "UPDATE attendance_records 
-                        SET status = '$new_status', notes = '$reason' 
-                        WHERE record_id = '$record_id'";
+                         SET status = '$new_status', notes = '$reason' 
+                         WHERE record_id = '$record_id'";
     }
     
     if(mysqli_query($conn, $update_query)) {
@@ -72,7 +72,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['bulk_update'])) {
     }
 }
 
-// Display messages as JavaScript alerts and redirect after bulk update
+// Display success messages(bulk update)
 if(!empty($success_message) && isset($_POST['bulk_update'])) {
     echo "<script>alert('" . addslashes($success_message) . "'); window.location.href = 'update_absent_status.php';</script>";
     exit();
@@ -83,7 +83,7 @@ if(!empty($error_message) && isset($_POST['bulk_update'])) {
     exit();
 }
 
-// Display messages as JavaScript alerts for individual update
+// Display success messages(individual update)
 if(!empty($success_message) && isset($_POST['update_status'])) {
     echo "<script>alert('" . addslashes($success_message) . "'); window.location.href = 'update_absent_status.php';</script>";
     exit();
@@ -94,13 +94,14 @@ if(!empty($error_message) && isset($_POST['update_status'])) {
     exit();
 }
 
-// Get all absent employees for today (both sessions)
+// Get all absent employees for today where notes is NULL
 $absent_query = "SELECT a.*, u.name, e.employee_code, e.department, e.position 
                  FROM attendance_records a
                  JOIN employees e ON a.employee_id = e.employee_id
                  JOIN users u ON e.user_id = u.user_id
                  WHERE a.record_date = '$today' 
-                 AND (a.status = 'absent' OR a.status = '')
+                 AND a.status = 'absent' 
+                 AND a.notes IS NULL
                  ORDER BY a.session, u.name";
 $absent_result = mysqli_query($conn, $absent_query);
 
@@ -197,6 +198,7 @@ while($row = mysqli_fetch_assoc($absent_result)) {
                                 <td>
                                     <textarea name="updates[<?php echo $record['record_id']; ?>][reason]" class="reason-input" rows="2" placeholder="Optional: Enter reason..."></textarea>
                                 </td>
+                            </tr>
                             <?php endforeach; ?>
                         </tbody>
                     </table>
@@ -241,7 +243,7 @@ while($row = mysqli_fetch_assoc($absent_result)) {
         cb.addEventListener('change', updateSelectAll);
     });
     
-    // Add animation when checkboxes are clicked
+    // Add checkboxes animation 
     document.querySelectorAll('.record-checkbox, .select-all-checkbox').forEach(checkbox => {
         checkbox.addEventListener('click', function(e) {
             this.style.transform = 'scale(0.95)';
