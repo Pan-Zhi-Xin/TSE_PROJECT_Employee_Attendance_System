@@ -65,29 +65,37 @@ if (isset($_POST['reset_password'])) {
             $user_id = $_SESSION['reset_user_id'];
             
             $stmt = mysqli_prepare($conn, "SELECT name FROM users WHERE user_id = ?");
-            mysqli_stmt_bind_param($stmt, "i", $user_id);
-            mysqli_stmt_execute($stmt);
-            $result = mysqli_stmt_get_result($stmt);
-            $user = mysqli_fetch_assoc($result);
-            $user_name = $user['name'];
-            mysqli_stmt_close($stmt);
-
-            $stmt = mysqli_prepare($conn, "UPDATE users SET password = ? WHERE user_id = ?");
-            mysqli_stmt_bind_param($stmt, "si", $new_password, $user_id);
-            
-            if (mysqli_stmt_execute($stmt)) {
-                $successUserName = $user_name;
-                $showSuccessPopup = true;
-                
-                // clear session variables
-                unset($_SESSION['reset_email']);
-                unset($_SESSION['reset_user_id']);
+            if ($stmt) {
+                mysqli_stmt_bind_param($stmt, "i", $user_id);
+                mysqli_stmt_execute($stmt);
+                $result = mysqli_stmt_get_result($stmt);
+                $user = mysqli_fetch_assoc($result);
+                $user_name = $user['name'];
                 mysqli_stmt_close($stmt);
+            } else {
+                $message = "Database error: Could not fetch user information.";
+                $user_name = "User";
             }
-            else {
-                $message = "Database error: Could not update password.";
+
+            $stmt2 = mysqli_prepare($conn, "UPDATE users SET password = ? WHERE user_id = ?");
+            if ($stmt2) {
+                mysqli_stmt_bind_param($stmt2, "si", $new_password, $user_id);
+                
+                if (mysqli_stmt_execute($stmt2)) {
+                    $successUserName = $user_name;
+                    $showSuccessPopup = true;
+                    
+                    // clear session variables
+                    unset($_SESSION['reset_email']);
+                    unset($_SESSION['reset_user_id']);
+                }
+                else {
+                    $message = "Database error: Could not update password.";
+                }
+                mysqli_stmt_close($stmt2);
+            } else {
+                $message = "Database error: Could not prepare update statement.";
             }
-            mysqli_stmt_close($stmt);
         }
     }
 }
